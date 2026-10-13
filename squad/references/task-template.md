@@ -2,7 +2,8 @@
        issue.sh create task "<title>" - --parent <story> --priority <P> --size <XS|S|M> <<'EOF' … EOF
      Title: imperative, one thing, e.g. "Add users table migration".
      scripts/waves.sh and scripts/pr.sh parse the "Layer", "Serial", "Depends on" lines and the
-     "Files (expected)" list: keep their exact form. Everything in English. -->
+     "Files (expected)" list: keep their exact form. The "Depends on" line holds only the
+     dependency issue numbers: any other #number on it is read as a dependency. Everything in English. -->
 - **Story:** #<story>
 - **Layer:** schema | service | api | ui | job | config | infra | test
 - **Size:** XS | S | M (~<lines> changed lines, <files> files, excluding tests)

@@ -15,7 +15,8 @@
 # branch feat/<issue>-<slug> (fix/ for type:bug issues) is created from the latest origin/main.
 # Nothing is ever committed to main. .worktrees/ and .env.local are added to .git/info/exclude.
 # Slot environment (.env.local): SQUAD_SLOT, SQUAD_ISSUE, PORT = parallel.port_base + slot,
-# TEST_DB_NAME = <parallel.test_db_prefix>_<slot>.
+# TEST_DB_NAME = <parallel.test_db_prefix>_<slot>, and DATABASE_URL from
+# parallel.database_url_template ({db} = the slot's test database) when set.
 # Config: $SQUAD_CONFIG or .squad/config.yml in the main worktree.
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -53,6 +54,10 @@ SQUAD_SLOT=$3
 PORT=$((port_base + $3))
 TEST_DB_NAME=${prefix}_$3
 EOF
+  local tpl; tpl="$(cfg '.parallel.database_url_template')"
+  if [[ -n "$tpl" ]]; then
+    echo "DATABASE_URL=${tpl//\{db\}/${prefix}_$3}" >> "$1/.env.local"
+  fi
 }
 
 cmd_create() {
@@ -105,7 +110,9 @@ cmd_clean() {
   local root dir branch=""; root="$(main_root)"; dir="$root/.worktrees/$n"
   if git -C "$root" worktree list --porcelain | grep -qxF "worktree $dir"; then
     branch="$(git -C "$dir" branch --show-current)"
-    if [[ "$force" == 0 && -n "$(git -C "$dir" status --porcelain --untracked-files=normal | grep -v ' .env.local$' || true)" ]]; then
+    # after a merged PR, untracked leftovers (PR body drafts, logs) do not block the cleanup
+    local untracked=normal; [[ "$prmerged" == 1 ]] && untracked=no
+    if [[ "$force" == 0 && -n "$(git -C "$dir" status --porcelain --untracked-files=$untracked | grep -v ' .env.local$' || true)" ]]; then
       die "$dir has uncommitted changes; commit/push them or use --force"
     fi
     git -C "$root" worktree remove --force "$dir"

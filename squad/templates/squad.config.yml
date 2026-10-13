@@ -14,11 +14,14 @@ commands:
   test: npm test
   lint: npm run lint
   e2e: ""                         # e.g. npx playwright test; leave empty if none
+  services: ""                    # idempotent command that starts local services tests need,
+                                  # e.g. docker start app-pg || docker run -d --name app-pg ...
 parallel:
   max_parallel_dev: 2
   max_open_prs: 4
   port_base: 4100
   test_db_prefix: app_test
+  database_url_template: ""       # e.g. postgresql://postgres:postgres@localhost:5432/{db}
 merge:
   require_ci: true                # Team Lead merges only with green CI checks
 deploy:

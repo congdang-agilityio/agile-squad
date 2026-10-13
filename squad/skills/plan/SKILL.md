@@ -6,9 +6,9 @@ description: "Team Lead procedure: split approved stories (Backlog), needs-split
 # squad: plan (Team Lead)
 
 The PM (main session) dispatches the `team-lead` subagent with one mode:
-- `mode=plan [stories=#34,#35] [milestone=<title>] config=.squad/config.yml`
-  (no `stories`: every story in `Backlog`, every task labeled `needs-split`, every `type:bug`
-  in `Todo` without a Wave)
+- `mode=plan [stories=#34,#35] [tasks=#118] [milestone=<title>] config=.squad/config.yml`
+  (`tasks`: `needs-split` tasks or QA bugs to plan. Neither given: every story in `Backlog`,
+  every task labeled `needs-split`, every `type:bug` in `Todo` without a Wave)
 - `mode=merge pr=<n> config=.squad/config.yml`
 
 Scripts: `${CLAUDE_PLUGIN_ROOT}/scripts/` (`board.sh`, `issue.sh`, `waves.sh`, `pr.sh`). Call
@@ -49,9 +49,11 @@ them with literal arguments, no shell variables. Rules: `references/board-conven
 1. Create tasks in dependency order so `Depends on` uses real issue numbers:
    `issue.sh create task "<title>" - --parent <story> --priority <story priority> --size <XS|S|M> [--milestone <title>]`
    with the body on stdin (heredoc). Re-running reuses open issues with the same title.
-2. `needs-split` task: read the developer's split comment and any merged partial PR; create
-   the replacement tasks under the same story; comment `Split into #a, #b` on the original,
-   then `gh issue close <n> --reason "not planned"`.
+2. `needs-split` task: read the developer's split comment, the review, any open PR and any
+   merged partial PR. Either re-size it (`board.sh set-field <n> size <S>`, fix the `Size`
+   line, remove `needs-split`, comment why) when the work is one indivisible unit, or create
+   the replacement tasks under the same story, comment `Split into #a, #b` on the original,
+   close its open PR, then `gh issue close <n> --reason "not planned"`.
 3. QA bug: keep the issue; if its body lacks `Layer`, `Serial`, `Depends on` or
    `Files (expected)`, add them with `gh issue edit <n> --body-file -`; set Size with
    `board.sh set-field <n> size <S>`. Priority stays as QA set it.

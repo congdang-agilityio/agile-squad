@@ -170,6 +170,8 @@ cmd_set_field() {
 cmd_ready_tasks() {
   local items cand missing d st extra='{}'
   items="$(all_items)"
+  READY_TMP="$(mktemp)"; trap 'rm -f "$READY_TMP"' EXIT; local tmp="$READY_TMP"
+  jq 'map(del(.body))' <<<"$items" > "$tmp"   # large: pass by file, not argv
   cand="$(jq '
     map(select(.status == "Todo"
           and (.labels | index("type:task") or index("type:bug"))
@@ -177,13 +179,14 @@ cmd_ready_tasks() {
     | map(. + {depends_on: [ (.body // "") | split("\n")[] | select(test("depends on"; "i"))
                              | scan("#([0-9]+)")[0] | tonumber ] | unique})' <<<"$items")"
   # dependencies not in the (eventually consistent) listing are looked up one by one
-  missing="$(jq -r --argjson all "$items" '[.[].depends_on[]] | unique - [$all[].number] | .[]' <<<"$cand")"
+  missing="$(jq -r --slurpfile all "$tmp" '[.[].depends_on[]] | unique - [$all[0][].number] | .[]' <<<"$cand")"
   for d in $missing; do
     st="$(one_item "$d" | jq -r '.status // empty')"
     extra="$(jq -c --arg k "$d" --arg v "$st" '. + {($k): $v}' <<<"$extra")"
   done
-  jq --argjson all "$items" --argjson extra "$extra" '
-    ((($all | map({key: (.number | tostring), value: .status}) | from_entries)) + $extra) as $st
+  jq --slurpfile allf "$tmp" --argjson extra "$extra" '
+    $allf[0] as $all
+    | ((($all | map({key: (.number | tostring), value: .status}) | from_entries)) + $extra) as $st
     | map(select([.depends_on[] | ($st[tostring] // "") | select(. != "Done" and . != "Released")] | length == 0)
           | del(.body))
     | sort_by((.priority // "P9"), (.wave // 999999), .number)' <<<"$cand"

@@ -73,9 +73,10 @@ cmd_children() {
   subs="$(gql 'query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){issue(number:$n){
               subIssues(first:100){nodes{number title state labels(first:30){nodes{name}}}}}}}' \
           -F o="$OWNER" -F r="$REPO" -F n="$n" | jq '.data.repository.issue.subIssues.nodes')"
-  board="$("$BOARD" list all)"
-  jq --argjson b "$board" 'map(. as $i | {number, title, state, labels: [.labels.nodes[].name],
+  board="$(mktemp)"; "$BOARD" list all > "$board"
+  jq --slurpfile bf "$board" '$bf[0] as $b | map(. as $i | {number, title, state, labels: [.labels.nodes[].name],
        status: ([$b[] | select(.number == $i.number) | .status] | first)})' <<<"$subs"
+  rm -f "$board"
 }
 
 cmd_create() {
