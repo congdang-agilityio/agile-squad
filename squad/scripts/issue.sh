@@ -12,6 +12,10 @@
 #   issue.sh children <issue>          JSON list of sub-issues with state, labels and board status
 #   issue.sh parent <issue>            Parent issue number, or empty if none
 #   issue.sh labels                    Create or update every squad label (idempotent)
+#   issue.sh publish <slug>            After GATE 2: create the epic from
+#                                      docs/requirements/<slug>/epic.md and one story per
+#                                      stories/S-*.md as its sub-issues in Backlog, with the
+#                                      priority from each file. Idempotent (reuses open issues).
 #
 # Config: $SQUAD_CONFIG or .squad/config.yml in the main worktree.
 set -euo pipefail
@@ -120,11 +124,39 @@ cmd_create() {
       parent:(if $p == "" then null else ($p | tonumber) end)}'
 }
 
+cmd_publish() {
+  local slug="${1:?usage: issue.sh publish <slug>}" dir root
+  root="$(dirname "$(config_path)")"; root="$(dirname "$root")"
+  dir="$root/docs/requirements/$slug"
+  [[ -s "$dir/epic.md" ]] || die "missing $dir/epic.md"
+  grep -q '^Signed-off: ' "$dir/requirements.md" 2>/dev/null \
+    || die "$dir/requirements.md has no 'Signed-off:' line: GATE 1 not passed"
+  local files=("$dir"/stories/S-*.md)
+  [[ -e "${files[0]}" ]] || die "no stories in $dir/stories/"
+  local tmp; tmp="$(mktemp -d)"
+  local etitle; etitle="$(sed -n 's/^# *\(Epic: *\)\{0,1\}//p' "$dir/epic.md" | head -n1)"
+  [[ -n "$etitle" ]] || die "epic.md must start with '# <epic title>'"
+  sed '1{/^# /d}' "$dir/epic.md" > "$tmp/epic.md"
+  local epic; epic="$(cmd_create epic "$etitle" "$tmp/epic.md" --priority P1 | jq .issue)"
+  local f id title prio out='[]' n
+  for f in "${files[@]}"; do
+    id="$(basename "$f" | grep -oE '^S-[0-9]+')"
+    title="$(sed -n '1s/^# *S-[0-9]*: *//p' "$f")"
+    [[ -n "$title" ]] || die "$f must start with '# S-nn: <title>'"
+    prio="$(grep -oE '\*\*Priority:\*\* *P[0-3]' "$f" | grep -oE 'P[0-3]' | head -n1)"
+    { sed '1d' "$f"; printf '\n---\nStory %s · Requirements: `docs/requirements/%s/`\n' "$id" "$slug"; } > "$tmp/body.md"
+    n="$(cmd_create story "$title" "$tmp/body.md" --parent "$epic" ${prio:+--priority "$prio"} --status Backlog | jq .issue)"
+    out="$(jq -c --arg id "$id" --argjson n "$n" --arg t "$title" '. + [{id:$id, issue:$n, title:$t}]' <<<"$out")"
+  done
+  rm -rf "$tmp"
+  jq -n --argjson e "$epic" --argjson s "$out" '{epic:$e, stories:$s}'
+}
+
 need gh jq git awk
 cmd="${1:-}"; [[ $# -gt 0 ]] && shift
 case "$cmd" in
   -h|--help|help|"") usage_from "$0"; [[ -n "$cmd" ]] ;;
-  create|link|children|parent) load_project; "cmd_$cmd" "$@" ;;
+  create|link|children|parent|publish) load_project; "cmd_$cmd" "$@" ;;
   labels)
     load_config; OWNER="$(cfg_req .owner)"; REPO="$(cfg_req .repo)"; cmd_labels ;;
   *) die "unknown command '$cmd' (see --help)" ;;
