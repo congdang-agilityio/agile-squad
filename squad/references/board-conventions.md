@@ -20,6 +20,10 @@ quoted below are defaults; always read the real values from `limits` and `parall
 | `Released` | Live in production | DevOps |
 
 Never move an item to a status owned by another role, except as listed above.
+Only squad scripts set Status: setup removes GitHub's built-in project workflows that would
+(for example "Item closed" moving a task to Done when its PR merges, skipping QA).
+The board listing (`board.sh list`, `ready-tasks`) can lag ~30 seconds behind newly added
+issues; `board.sh get <issue>` always reads the current state.
 
 ## 2. Custom fields
 

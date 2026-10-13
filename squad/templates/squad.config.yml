@@ -1,0 +1,31 @@
+# squad configuration. Copied to .squad/config.yml by the setup skill.
+owner: OWNER                      # GitHub user or organization
+repo: REPO
+project_number: null              # filled in by setup
+ids:                              # filled in by setup; do not edit by hand
+  project_id: null
+language:
+  artifacts: en                   # fixed: every document, issue and PR is in English
+  chat: auto                      # reply to the stakeholder in their language (vi/en)
+commands:
+  install: npm ci
+  test: npm test
+  lint: npm run lint
+  e2e: ""                         # e.g. npx playwright test; leave empty if none
+parallel:
+  max_parallel_dev: 2
+  max_open_prs: 4
+  port_base: 4100
+  test_db_prefix: app_test
+deploy:
+  platform: railway
+  staging_workflow: deploy.yml
+  staging_url: https://staging.example.com
+  production_environment: production   # GitHub Environment with required reviewers
+limits:
+  max_attempts: 3
+  story_max_ac: 5
+  story_max_tasks: 5
+  pr_max_lines: { XS: 50, S: 150, M: 300 }
+  pr_max_files: { XS: 3, S: 6, M: 10 }
+  pr_size_exclude: ["**/*.test.*", "**/__tests__/**", "**/*.lock", "package-lock.json", "**/generated/**"]
