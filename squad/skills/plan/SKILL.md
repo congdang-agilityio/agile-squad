@@ -5,6 +5,8 @@ description: "Team Lead procedure: split approved stories (Backlog), needs-split
 
 # squad: plan (Team Lead)
 
+Paths written as `references/…`, `templates/…` or `scripts/…` are inside `${CLAUDE_PLUGIN_ROOT}` (the squad plugin folder), not the target repository.
+
 The PM (main session) dispatches the `team-lead` subagent with one mode:
 - `mode=plan [stories=#34,#35] [tasks=#118] [milestone=<title>] config=.squad/config.yml`
   (`tasks`: `needs-split` tasks or QA bugs to plan. Neither given: every story in `Backlog`,

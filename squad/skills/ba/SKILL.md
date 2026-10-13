@@ -5,6 +5,8 @@ description: "Turn a product idea or requirement sources (files, links, a chat d
 
 # squad: ba (requirements → stories)
 
+Paths written as `references/…`, `templates/…` or `scripts/…` are inside `${CLAUDE_PLUGIN_ROOT}` (the squad plugin folder), not the target repository.
+
 Two roles share this procedure:
 - **PM** = the main session. The only one who talks to the stakeholder, owns GATE 1 and 2.
 - **BA** = the `ba-analyst` subagent, dispatched by the PM with a mode:

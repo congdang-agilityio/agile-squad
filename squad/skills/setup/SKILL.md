@@ -5,6 +5,8 @@ description: "Initialize squad in the current repository: create or reuse the Gi
 
 # squad: setup
 
+Paths written as `references/…`, `templates/…` or `scripts/…` are inside `${CLAUDE_PLUGIN_ROOT}` (the squad plugin folder), not the target repository.
+
 Runs in the **main session** (PM). No subagent: it needs a few stakeholder decisions.
 
 - Scripts: `${CLAUDE_PLUGIN_ROOT}/scripts/` (call them by this full path)
@@ -66,7 +68,7 @@ Runs in the **main session** (PM). No subagent: it needs a few stakeholder decis
    repo public or upgrade, then re-run setup). Once CI exists, add its check name to
    `required_status_checks` with `"strict": true`.
 
-6. **Git hygiene.** Ensure `.gitignore` contains `.worktrees/` (append if missing).
+6. **Git hygiene.** Ensure `.gitignore` contains `.worktrees/` and `.squad/reports/` (append if missing).
 
 7. **Commands.** Detect the stack (e.g. `package.json` scripts, `pyproject.toml`, `Makefile`) and
    propose values for `commands.install`, `test`, `lint` and `e2e` in `.squad/config.yml`. Show

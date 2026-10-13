@@ -29,7 +29,7 @@ main_root() { dirname "$(git rev-parse --path-format=absolute --git-common-dir)"
 exclude() { # add ignore patterns locally (no commit needed)
   local f p; f="$(git rev-parse --path-format=absolute --git-common-dir)/info/exclude"
   mkdir -p "$(dirname "$f")"; touch "$f"
-  for p in "/.worktrees/" ".env.local"; do grep -qxF "$p" "$f" || echo "$p" >> "$f"; done
+  for p in "/.worktrees/" ".env.local" "/.squad/reports/"; do grep -qxF "$p" "$f" || echo "$p" >> "$f"; done
 }
 
 slugify() { # lowercase, ascii, dash-separated, max 40 chars

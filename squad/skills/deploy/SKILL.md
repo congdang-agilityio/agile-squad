@@ -5,6 +5,8 @@ description: "DevOps procedure for releasing a milestone: check the deploy gate 
 
 # squad: deploy (milestone → staging → GATE 3 → production)
 
+Paths written as `references/…`, `templates/…` or `scripts/…` are inside `${CLAUDE_PLUGIN_ROOT}` (the squad plugin folder), not the target repository.
+
 The PM dispatches a fresh `devops` subagent:
 - `mode=release milestone=<title> config=.squad/config.yml`: gate, notes, staging, then stop
   at GATE 3;

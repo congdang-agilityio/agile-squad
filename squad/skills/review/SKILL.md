@@ -5,6 +5,8 @@ description: "Code review procedure for one PR in In Review: check size and scop
 
 # squad: review (one PR, verdict by comment)
 
+Paths written as `references/…`, `templates/…` or `scripts/…` are inside `${CLAUDE_PLUGIN_ROOT}` (the squad plugin folder), not the target repository.
+
 The PM dispatches a fresh `reviewer` subagent: `pr=<n> config=.squad/config.yml`.
 When invoked directly (`/squad:review <pr>`), dispatch the `reviewer` subagent instead.
 The Reviewer has no Write/Edit and never changes code, approves (`--approve`) or merges:

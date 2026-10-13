@@ -5,6 +5,8 @@ description: "Developer procedure: implement exactly one task issue with TDD in 
 
 # squad: dev (one task, one PR)
 
+Paths written as `references/…`, `templates/…` or `scripts/…` are inside `${CLAUDE_PLUGIN_ROOT}` (the squad plugin folder), not the target repository.
+
 The PM dispatches a fresh `developer` subagent per task:
 `mode=implement|rework|rebase issue=<n> slot=<k> config=.squad/config.yml`
 (rebase also gets `pr=<n>`). One task per invocation. When invoked directly

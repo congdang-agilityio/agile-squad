@@ -5,6 +5,8 @@ description: "QA procedure: verify a merged task, bug or story in the QA column 
 
 # squad: qa (verify on main, pass or file bugs)
 
+Paths written as `references/…`, `templates/…` or `scripts/…` are inside `${CLAUDE_PLUGIN_ROOT}` (the squad plugin folder), not the target repository.
+
 The PM dispatches a fresh `qa-tester` subagent: `issue=<n> config=.squad/config.yml`
 (one task or bug per invocation). When invoked directly (`/squad:qa <issue>`), dispatch the
 `qa-tester` subagent instead. QA never edits code and never weakens a criterion.
