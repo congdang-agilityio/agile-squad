@@ -2,8 +2,9 @@
 # issue.sh: issues, sub-issues and labels for squad.
 #
 # Usage:
-#   issue.sh create <type> <title> <body-file> [--parent N] [--priority P] [--size S]
+#   issue.sh create <type> <title> <body-file|-> [--parent N] [--priority P] [--size S]
 #                   [--milestone TITLE] [--status STATUS | --no-board]
+#       Body "-" reads the issue body from stdin.
 #       type: epic|story|task|bug|report. Creates the issue with label type:<type>, adds it
 #       to the board, sets fields and links it as a sub-issue of --parent. Default status:
 #       epic/story -> Backlog, task/bug -> Todo; reports are not added to the board.
@@ -93,6 +94,9 @@ cmd_create() {
     esac
   done
   in_list "$type" "${ISSUE_TYPES[@]}" || die "type must be one of: ${ISSUE_TYPES[*]}"
+  if [[ "$body" == "-" ]]; then   # body from stdin
+    local tmpb; tmpb="$(mktemp)"; cat > "$tmpb"; body="$tmpb"
+  fi
   [[ -s "$body" ]] || die "body file '$body' is missing or empty"
   [[ -z "$priority" ]] || in_list "$priority" "${PRIORITIES[@]}" || die "priority must be one of ${PRIORITIES[*]}"
   [[ -z "$size" ]] || in_list "$size" "${SIZES[@]}" || die "size must be one of ${SIZES[*]}"

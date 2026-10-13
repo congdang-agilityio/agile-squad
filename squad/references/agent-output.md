@@ -43,12 +43,12 @@ Rules:
 
 | Status | Meaning | `next` | Extra fields |
 |---|---|---|---|
-| `planned` | Tasks created, waves written to the board | `dispatch` | `waves` (list of lists of issue numbers), `serial`, `risks`, `plan_file` |
+| `planned` | Tasks created, waves written to the board, dispatch plan posted on the epic | `dispatch` | `waves` (list of lists of issue numbers), `serial`, `risks`, `tasks` (list of `{issue, story, size}`), `plan_comment` (URL) |
 | `merged` | Mode `merge`: final check passed, squash-merged, task moved to `QA` | `qa` | `pr`, `issue`, `rebase_needed` (list of PRs labeled) |
 | `merge_rejected` | Mode `merge`: final check failed, `review:passed` removed | `review` or `rework` | `pr`, `issue`, `reasons` |
 | `needs_rebase` | Mode `merge`: PR conflicts with `main`, labeled `needs-rebase` | `rebase` | `pr`, `issue` |
 | `story_too_big` | A story needs more than `story_max_tasks` tasks | `ba_split` | `story`, `suggested_split` |
-| `blocked` | Cannot plan (missing info, AC conflict) | `ask_stakeholder` | — |
+| `blocked` | Cannot plan (no `stack` for a new repo, unclear or conflicting AC) | `ask_stakeholder` | `proposal` (e.g. proposed stack) when relevant |
 
 ### `dev` (developer)
 

@@ -25,3 +25,19 @@ Stakeholder decision after verifying that GitHub rejects self-approval
 
 ## D-3 (2026-10-13): Sandbox is public
 `congdang-agilityio/squad-sandbox` was made public so branch protection works on the free plan.
+
+## D-4 (2026-10-13): Dispatch plan is an epic comment, waves are computed by a script
+- Plan 5.3 step 6 asks for `docs/plans/<date>-dispatch.md`. Writing it would need a commit to
+  `main` (forbidden, D-2) or a docs PR per plan. Instead the Team Lead posts the dispatch plan
+  (`references/dispatch-plan-template.md`) as a **comment on the epic**; the `Wave` field on the
+  board stays the source of truth.
+- Waves are computed by `scripts/waves.sh` from `Depends on`, `Files (expected)` and serial
+  rules (precision-critical, so not left to the model), capped at `parallel.max_parallel_dev`.
+
+## D-5 (2026-10-13): Stack choice belongs to the stakeholder
+- New config key `stack`. In a repo without application code and an empty `stack`, the Team
+  Lead creates no tasks and returns `blocked` with a proposed stack; the PM asks the stakeholder.
+
+## D-6 (2026-10-13): Merge permission
+- Claude Code auto mode blocks `gh pr merge` ("Merge Without Review"). `setup` offers the
+  allow rule `Bash(gh pr merge:*)`; new config key `merge.require_ci` (default true).

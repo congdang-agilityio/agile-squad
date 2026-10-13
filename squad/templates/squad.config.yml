@@ -4,6 +4,8 @@ repo: REPO
 project_number: null              # filled in by setup
 ids:                              # filled in by setup; do not edit by hand
   project_id: null
+stack: ""                         # e.g. "Node 20, Next.js 14, PostgreSQL + Prisma, Vitest, Playwright";
+                                  # empty in a new repo: the Team Lead proposes one, the stakeholder decides
 language:
   artifacts: en                   # fixed: every document, issue and PR is in English
   chat: auto                      # reply to the stakeholder in their language (vi/en)
@@ -17,6 +19,8 @@ parallel:
   max_open_prs: 4
   port_base: 4100
   test_db_prefix: app_test
+merge:
+  require_ci: true                # Team Lead merges only with green CI checks
 deploy:
   platform: railway
   staging_workflow: deploy.yml

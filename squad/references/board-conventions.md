@@ -12,7 +12,7 @@ quoted below are defaults; always read the real values from `limits` and `parall
 | Status | Meaning | Moved there by |
 |---|---|---|
 | `Backlog` | Approved story, not yet split into tasks | PM (after GATE 2) |
-| `Todo` | Task ready to be picked up | Team Lead; QA (bugs); Reviewer (rework) |
+| `Todo` | Task ready to be picked up; a planned story waits here until its tasks are done | Team Lead; QA (bugs); Reviewer (rework) |
 | `In Progress` | A developer is working on it | Dev |
 | `In Review` | PR open, awaiting review | Dev |
 | `QA` | Merged, awaiting testing | Team Lead (after final check and merge) |
@@ -66,13 +66,17 @@ Releases are grouped by repository **milestones**.
 ### Review and merge (one GitHub account)
 All roles share one GitHub account, and GitHub forbids approving your own PR, so approval is
 expressed as a review comment plus a label, never `gh pr review --approve`:
-1. The **Reviewer** posts its verdict with `gh pr review --comment`. PASS → label
-   `review:passed`. Changes needed → label `review:changes`, task back to `Todo`.
-   The Reviewer never merges.
+1. The **Reviewer** posts its verdict with `gh pr review --comment`; the body has a line
+   `Verdict: PASS` or `Verdict: CHANGES`. The verdict counts only for the commit it was posted
+   on. PASS → label `review:passed`. Changes needed → label `review:changes`, task back to
+   `Todo`. The Reviewer never merges.
 2. The **Team Lead** takes PRs labeled `review:passed`, does the final check (the review
    comment says PASS for the current head commit, CI green, no conflicts, scope matches the
-   task), then squash-merges, moves the task to `QA`, and labels any open PR that now
-   conflicts `needs-rebase`. If the final check fails, it removes `review:passed` and comments why.
+   task) with `scripts/pr.sh check`, then `scripts/pr.sh merge` squash-merges pinned to the
+   checked head SHA, moves the task to `QA`, and labels any open PR that now conflicts
+   `needs-rebase`. If the final check fails, `scripts/pr.sh reject` removes `review:passed`
+   and comments why; the task stays `In Review` when only a fresh review is needed, or goes
+   back to `Todo` for rework.
 
 ## 6. Sizing rules
 
@@ -106,7 +110,9 @@ expressed as a review comment plus a label, never `gh pr review --approve`:
 - Always serialized (alone in their wave relative to the same area): database
   migrations/schema, dependency changes (`package.json`, lockfiles), shared routing/config
   files, CI/build config.
-- At most `parallel.max_parallel_dev` developers at once.
+- At most `parallel.max_parallel_dev` developers at once; a wave never has more tasks.
+- Waves are computed by `scripts/waves.sh` (never by hand) and stored in the `Wave` field;
+  the Team Lead explains them in a dispatch plan comment on the epic.
 - Each developer slot gets its own worktree, port (`port_base + slot`) and test database
   (`<test_db_prefix>_<slot>`).
 - Developers rebase on the latest `main` before opening a PR. When a merge makes another open

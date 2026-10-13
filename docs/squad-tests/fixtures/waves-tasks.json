@@ -1,0 +1,56 @@
+[
+ {
+  "number": 1,
+  "priority": "P0",
+  "status": "Todo",
+  "body": "- **Story:** #34\n- **Layer:** config\n- **Size:** S\n- **Serial:** no\n- **Depends on:** none\n\n## Goal\nx\n\n## Files (expected)\n- `package.json` (edit, ~20 lines)\n- `src/index.ts` (edit, ~20 lines)\n\n## Definition of Done\n- [ ] x\n"
+ },
+ {
+  "number": 2,
+  "priority": "P1",
+  "status": "Todo",
+  "body": "- **Story:** #34\n- **Layer:** schema\n- **Size:** S\n- **Serial:** yes (users table migration)\n- **Depends on:** #1\n\n## Goal\nx\n\n## Files (expected)\n- `prisma/schema.prisma` (edit, ~20 lines)\n- `prisma/migrations/` (edit, ~20 lines)\n\n## Definition of Done\n- [ ] x\n"
+ },
+ {
+  "number": 3,
+  "priority": "P1",
+  "status": "Todo",
+  "body": "- **Story:** #34\n- **Layer:** service\n- **Size:** S\n- **Serial:** no\n- **Depends on:** #1\n\n## Goal\nx\n\n## Files (expected)\n- `src/lib/password.ts` (edit, ~20 lines)\n\n## Definition of Done\n- [ ] x\n"
+ },
+ {
+  "number": 4,
+  "priority": "P1",
+  "status": "Todo",
+  "body": "- **Story:** #34\n- **Layer:** service\n- **Size:** S\n- **Serial:** no\n- **Depends on:** #1\n\n## Goal\nx\n\n## Files (expected)\n- `src/lib/email.ts` (edit, ~20 lines)\n\n## Definition of Done\n- [ ] x\n"
+ },
+ {
+  "number": 5,
+  "priority": "P1",
+  "status": "Todo",
+  "body": "- **Story:** #34\n- **Layer:** api\n- **Size:** S\n- **Serial:** no\n- **Depends on:** #2, #3, #4\n\n## Goal\nx\n\n## Files (expected)\n- `src/api/signup.ts` (edit, ~20 lines)\n\n## Definition of Done\n- [ ] x\n"
+ },
+ {
+  "number": 6,
+  "priority": "P1",
+  "status": "Todo",
+  "body": "- **Story:** #34\n- **Layer:** ui\n- **Size:** S\n- **Serial:** no\n- **Depends on:** #1\n\n## Goal\nx\n\n## Files (expected)\n- `src/ui/SignupPage.tsx` (edit, ~20 lines)\n\n## Definition of Done\n- [ ] x\n"
+ },
+ {
+  "number": 7,
+  "priority": "P1",
+  "status": "Todo",
+  "body": "- **Story:** #34\n- **Layer:** api\n- **Size:** S\n- **Serial:** no\n- **Depends on:** #2\n\n## Goal\nx\n\n## Files (expected)\n- `src/api/login.ts` (edit, ~20 lines)\n\n## Definition of Done\n- [ ] x\n"
+ },
+ {
+  "number": 8,
+  "priority": "P1",
+  "status": "Todo",
+  "body": "- **Story:** #34\n- **Layer:** api\n- **Size:** S\n- **Serial:** no\n- **Depends on:** #5, #6\n\n## Goal\nx\n\n## Files (expected)\n- `src/routes.ts` (edit, ~20 lines)\n\n## Definition of Done\n- [ ] x\n"
+ },
+ {
+  "number": 9,
+  "priority": "P1",
+  "status": "Todo",
+  "body": "- **Story:** #34\n- **Layer:** service\n- **Size:** S\n- **Serial:** no\n- **Depends on:** #1\n\n## Goal\nx\n\n## Files (expected)\n- `src/lib/` (edit, ~20 lines)\n\n## Definition of Done\n- [ ] x\n"
+ }
+]

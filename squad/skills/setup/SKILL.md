@@ -87,10 +87,15 @@ Runs in the **main session** (PM). No subagent: it needs a few stakeholder decis
    Use `/squad:run` to continue work. Do not edit `ids:` in the config by hand.
    ```
 
+   **Permissions.** Claude Code's auto mode refuses `gh pr merge` as "merge without review"
+   (it cannot see squad's review). Ask the stakeholder whether to add
+   `"Bash(gh pr merge:*)"` to `permissions.allow` in `.claude/settings.json`, so the Team Lead
+   can merge after the Reviewer's PASS. Branch protection still guards `main`.
+
 10. **Verify and commit.** Run `"${CLAUDE_PLUGIN_ROOT}/scripts/board.sh" list Todo`; it must
     print a JSON array without errors. Then commit `.squad/config.yml`, `.gitignore`,
-    `CLAUDE.md` and any workflow file on a branch `chore/squad-setup` and open a PR (or commit
-    to `main` if the stakeholder prefers and protection allows it).
+    `CLAUDE.md`, `.claude/settings.json` and any workflow file on a branch `chore/squad-setup`,
+    open a PR and squash-merge it after the stakeholder agrees. Never commit to `main`.
 
 ## Output
 
