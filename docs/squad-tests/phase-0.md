@@ -5,7 +5,7 @@ Date: 2026-10-13
 ## Decisions (stakeholder)
 - Skill set name: **squad** (commands `/squad:<skill>`, config `.squad/config.yml`)
 - Deploy target: **Railway**
-- Sandbox repository: created by Claude under the GitHub account `congdang-agilityio`
+- Sandbox repository: https://github.com/congdang-agilityio/squad-sandbox (private)
 - Git: repository initialized at the project root; commit after each phase
 
 ## Created
@@ -25,4 +25,4 @@ Date: 2026-10-13
   if not, switch agents to a relative lookup.
 - `yq` is not installed; scripts need a YAML reader (install `yq` or use a small built-in parser).
 - `pandoc` and `markitdown` are not installed (needed by `ingest.sh` in Phase 2).
-- The `congdang-agilityio` token needs the `project` and `workflow` scopes.
+- `congdang-agilityio` token now has the `project` and `workflow` scopes (resolved).
