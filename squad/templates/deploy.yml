@@ -1,0 +1,106 @@
+# squad deploy workflow (Railway). Copied to .github/workflows/deploy.yml by the setup skill.
+#
+# - Every push to main deploys to the "staging" GitHub Environment automatically.
+# - A release is started by the DevOps role with:
+#     gh workflow run deploy.yml -f ref=<sha> -f production=true
+#   staging deploys and is smoke-tested first; the production job then waits for the required
+#   reviewers of the "production" GitHub Environment (GATE 3). Nobody can skip that approval.
+#
+# Needs, per GitHub Environment (staging, production):
+#   secret   RAILWAY_TOKEN   a Railway project token for that Railway environment
+#   variable APP_URL         public URL of that environment, e.g. https://web-staging.up.railway.app
+# Repository variables (optional):
+#   RAILWAY_SERVICE  Railway service name (default: web)
+#   SMOKE_PATHS      space-separated paths that must answer 2xx (default: /api/health)
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Commit SHA or tag to deploy (default: the selected branch head)'
+        required: false
+        default: ''
+      production:
+        description: Also deploy to production after staging (waits for approval)
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  RAILWAY_CLI: '@railway/cli@5.63.1'
+
+jobs:
+  staging:
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: ${{ vars.APP_URL }}
+    outputs:
+      sha: ${{ steps.ref.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - id: ref
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Deploy to Railway staging
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: npx --yes "$RAILWAY_CLI" up --ci --service "${{ vars.RAILWAY_SERVICE || 'web' }}" --message "staging ${{ steps.ref.outputs.sha }}"
+      - name: Smoke test staging
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+          SMOKE_PATHS: ${{ vars.SMOKE_PATHS || '/api/health' }}
+        run: |
+          set -euo pipefail
+          for p in $SMOKE_PATHS; do
+            ok=0
+            for i in $(seq 1 20); do
+              code="$(curl -s -o /dev/null -w '%{http_code}' "$APP_URL$p" || true)"
+              if [[ "$code" =~ ^2 ]]; then ok=1; break; fi
+              sleep 15
+            done
+            [[ "$ok" == 1 ]] || { echo "::error::smoke test failed: $APP_URL$p answered $code"; exit 1; }
+            echo "smoke ok: $p ($code)"
+          done
+
+  production:
+    needs: staging
+    if: github.event_name == 'workflow_dispatch' && inputs.production
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ vars.APP_URL }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.staging.outputs.sha }}
+      - name: Deploy to Railway production
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: npx --yes "$RAILWAY_CLI" up --ci --service "${{ vars.RAILWAY_SERVICE || 'web' }}" --message "production ${{ needs.staging.outputs.sha }}"
+      - name: Smoke test production
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+          SMOKE_PATHS: ${{ vars.SMOKE_PATHS || '/api/health' }}
+        run: |
+          set -euo pipefail
+          for p in $SMOKE_PATHS; do
+            ok=0
+            for i in $(seq 1 20); do
+              code="$(curl -s -o /dev/null -w '%{http_code}' "$APP_URL$p" || true)"
+              if [[ "$code" =~ ^2 ]]; then ok=1; break; fi
+              sleep 15
+            done
+            [[ "$ok" == 1 ]] || { echo "::error::smoke test failed: $APP_URL$p answered $code"; exit 1; }
+            echo "smoke ok: $p ($code)"
+          done

@@ -72,12 +72,15 @@ Runs in the **main session** (PM). No subagent: it needs a few stakeholder decis
    propose values for `commands.install`, `test`, `lint` and `e2e` in `.squad/config.yml`. Show
    them to the stakeholder and write them after confirmation. Leave `e2e` empty if there is none.
 
-8. **Deploy workflow.** If `.github/workflows/` has no deploy workflow and
-   `${CLAUDE_PLUGIN_ROOT}/templates/deploy.yml` exists, copy it to
-   `.github/workflows/deploy.yml`. Ask the stakeholder for the deploy target and staging URL
-   (default platform: Railway) and record them under `deploy:` in the config. Remind them to
-   create the GitHub Environment named by `deploy.production_environment` with required
-   reviewers (that is GATE 3) and to add deploy secrets in GitHub, never in files.
+8. **Deploy workflow.** If `.github/workflows/` has no deploy workflow, copy
+   `${CLAUDE_PLUGIN_ROOT}/templates/deploy.yml` to `.github/workflows/deploy.yml` (Railway by
+   default) and record `deploy:` in the config. Create GitHub Environments `staging` and
+   `production`; `production` gets the stakeholder as required reviewer (GATE 3):
+   `gh api -X PUT repos/<owner>/<repo>/environments/production --input -` with
+   `{"reviewers":[{"type":"User","id":<id>}]}`. Set the variable `APP_URL` per environment
+   (`gh variable set APP_URL --env staging --body <url>`). Ask the stakeholder to create one
+   Railway project token per Railway environment and store it themselves:
+   `gh secret set RAILWAY_TOKEN --env staging` (and `--env production`). Never handle the token.
 
 9. **CLAUDE.md.** Add (or update) this section in the repo's `CLAUDE.md`:
    ```markdown

@@ -26,9 +26,12 @@ merge:
   require_ci: true                # Team Lead merges only with green CI checks
 deploy:
   platform: railway
-  staging_workflow: deploy.yml
+  staging_workflow: deploy.yml      # from templates/deploy.yml: staging on push to main,
+                                    # production job behind GitHub Environment approval
+  ci_workflow: ci.yml               # must be green on main before a release
   staging_url: https://staging.example.com
-  production_environment: production   # GitHub Environment with required reviewers
+  production_url: https://example.com
+  production_environment: production   # GitHub Environment with required reviewers (GATE 3)
 limits:
   max_attempts: 3
   story_max_ac: 5
