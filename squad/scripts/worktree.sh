@@ -10,6 +10,9 @@
 #                                     local branch when it has no commits outside origin/main,
 #                                     or when --pr-merged says its PR was (squash-)merged.
 #   worktree.sh list                  JSON list of task worktrees.
+#   worktree.sh qa                    Create or refresh .worktrees/qa: a detached checkout of the
+#                                     latest origin/main for QA (slot 0: PORT = port_base,
+#                                     TEST_DB_NAME = <prefix>_qa). Local changes there are discarded.
 #
 # Branch: an existing local or remote branch feat|fix/<issue>-* is reused; otherwise a new
 # branch feat/<issue>-<slug> (fix/ for type:bug issues) is created from the latest origin/main.
@@ -43,21 +46,41 @@ find_branch() { # existing branch for the issue: local first, then origin
   [[ -z "$b" ]] || echo "${b#origin/}"
 }
 
-write_env() { # write_env <dir> <issue> <slot>
-  local port_base prefix
+write_env() { # write_env <dir> <issue> <slot> [db-suffix]
+  local port_base prefix db
   port_base="$(cfg '.parallel.port_base')"; port_base="${port_base:-4100}"
   prefix="$(cfg '.parallel.test_db_prefix')"; prefix="${prefix:-app_test}"
+  db="${prefix}_${4:-$3}"
   cat > "$1/.env.local" <<EOF
 # Written by squad worktree.sh for slot $3. Do not commit.
 SQUAD_ISSUE=$2
 SQUAD_SLOT=$3
 PORT=$((port_base + $3))
-TEST_DB_NAME=${prefix}_$3
+TEST_DB_NAME=$db
 EOF
   local tpl; tpl="$(cfg '.parallel.database_url_template')"
   if [[ -n "$tpl" ]]; then
-    echo "DATABASE_URL=${tpl//\{db\}/${prefix}_$3}" >> "$1/.env.local"
+    echo "DATABASE_URL=${tpl//\{db\}/$db}" >> "$1/.env.local"
   fi
+}
+
+cmd_qa() {
+  local root dir; root="$(main_root)"; dir="$root/.worktrees/qa"
+  exclude
+  git -C "$root" fetch --quiet origin || die "git fetch failed"
+  if git -C "$root" worktree list --porcelain | grep -qxF "worktree $dir"; then
+    git -C "$dir" reset --quiet --hard && git -C "$dir" clean -qfd -e .env.local -e node_modules
+    git -C "$dir" checkout --quiet --detach origin/main
+  else
+    [[ ! -e "$dir" ]] || die "$dir exists but is not a registered worktree; remove it first"
+    git -C "$root" worktree add --quiet --detach "$dir" origin/main
+  fi
+  write_env "$dir" qa 0 qa
+  local port_base prefix
+  port_base="$(cfg '.parallel.port_base')"; prefix="$(cfg '.parallel.test_db_prefix')"
+  jq -nc --arg d "$dir" --arg sha "$(git -C "$dir" rev-parse HEAD)" \
+    --argjson port "${port_base:-4100}" --arg db "${prefix:-app_test}_qa" \
+    '{path:$d, commit:$sha, port:$port, test_db:$db}'
 }
 
 cmd_create() {
@@ -140,7 +163,7 @@ cmd_list() {
     /^worktree /{p=substr($0,10)} /^branch /{b=substr($0,8); sub("refs/heads/","",b)
       if (index(p,pre)==1) printf "%s\t%s\n", substr(p,length(pre)+1), b}' \
   | jq -R -s --arg root "$root" 'split("\n") | map(select(length>0) | split("\t")
-      | {issue:(.[0]|tonumber), branch:.[1], path:($root + "/.worktrees/" + .[0])})'
+      | select(.[0] | test("^[0-9]+$")) | {issue:(.[0]|tonumber), branch:.[1], path:($root + "/.worktrees/" + .[0])})'
 }
 
 need git jq gh
@@ -149,6 +172,7 @@ case "$cmd" in
   -h|--help|help|"") usage_from "$0"; [[ -n "$cmd" ]] ;;
   clean) shift; load_config; cmd_clean "$@" ;;
   list) load_config; cmd_list ;;
+  qa) load_config; cmd_qa ;;
   *) [[ $# -eq 2 ]] || die "usage: worktree.sh <issue> <slot> (see --help)"
      load_config; OWNER="$(cfg_req .owner)"; REPO="$(cfg_req .repo)"; cmd_create "$1" "$2" ;;
 esac

@@ -45,7 +45,10 @@ Releases are grouped by repository **milestones**.
 ## 4. Issue relationships
 
 - Epic → Story → Task are linked as GitHub **sub-issues** (GraphQL `addSubIssue`).
-- A QA bug is a sub-issue of the original task (or story) and states `Found in #<PR>`.
+- A QA bug is a sub-issue of the original task (or story) and states `Found in #<PR>`. The
+  failed task keeps label `qa:failed` and stays in `QA`; it reaches `Done` only when all its
+  bugs are `Done` and QA re-checks it. A story moves to `Done` when all its tasks are `Done`
+  and QA has verified the story's ACs.
 - Dependencies are written in the task body: `Depends on #12, #15`. A task is ready only when
   every dependency is `Done` or `Released`.
 - Every task body has a `Files (expected)` section listing the files/modules it will touch.

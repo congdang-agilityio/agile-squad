@@ -52,15 +52,16 @@ Scripts: `${CLAUDE_PLUGIN_ROOT}/scripts/` (`worktree.sh`, `board.sh`, `issue.sh`
 12. `board.sh move <n> "In Review"`. Return `pr_opened` with `pr`, `slot`, `size`.
 
 ## Mode rework
-After `review:changes` (review comments on the PR) or `qa:failed` (bug sub-issues).
+After `review:changes` (review comments on the PR). QA bugs are separate `type:bug` issues:
+they are implemented in mode `implement` on their own `fix/<bug>-…` branch and PR.
 1. Claim as in step 2 (`In Progress`, `Agent`, comment "Rework by dev-<k>").
 2. `worktree.sh <n> <k>` reuses the task branch. `git pull --rebase` so it matches the PR.
-3. Read the newest `Verdict: CHANGES` review (`gh pr view <pr> --json reviews,comments`) or
-   the bug issues. Fix **every** blocker and should-fix, each with a test that fails before
-   the fix. Nits are optional.
+3. Read the newest `Verdict: CHANGES` review (`gh pr view <pr> --json reviews,comments`).
+   Fix **every** blocker and should-fix, each with a test that fails before the fix. Nits are
+   optional.
 4. Green, commit (`fix: … (#<n>)`), size check, push (no force push).
 5. Comment on the PR: one line per finding → what changed and where. Remove the label
-   (`gh pr edit <pr> --remove-label review:changes`, or `qa:failed` on the task).
+   (`gh pr edit <pr> --remove-label review:changes`).
 6. `board.sh move <n> "In Review"`. Return `pr_opened`.
 
 ## Mode rebase

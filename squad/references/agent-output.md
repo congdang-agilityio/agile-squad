@@ -73,9 +73,10 @@ Rules:
 
 | Status | Meaning | `next` | Extra fields |
 |---|---|---|---|
-| `passed` | Every AC verified, item moved to `Done` | `none` or `deploy` | `issue`, `ready_to_deploy` (bool), `milestone` |
-| `bug_created` | Bug filed as sub-issue, task labeled `qa:failed` | `plan` | `issue`, `bugs` (list), `attempts` |
-| `needs_human` | Attempts exceeded `max_attempts` | `escalate` | `issue`, `attempts` |
+| `passed` | Every criterion verified on main, item moved to `Done` | `none`, `qa` (re-check the parent task) or `deploy` | `issue`, `story_done` (bool), `recheck` (parent task or `null`), `ready_to_deploy` (bool), `milestone` |
+| `bug_created` | Bug(s) filed as sub-issues in `Todo`, item labeled `qa:failed`, stays in `QA` | `plan` | `issue`, `bugs` (list), `attempts` |
+| `needs_human` | Attempts exceeded `max_attempts`; labeled `needs-human` | `escalate` | `issue`, `attempts`, `bugs` |
+| `blocked` | Cannot test (environment, missing information) | `ask_stakeholder` | `issue` |
 
 ### `devops`
 
