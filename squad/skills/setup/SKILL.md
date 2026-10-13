@@ -42,23 +42,25 @@ Runs in the **main session** (PM). No subagent: it needs a few stakeholder decis
      project's Workflows settings page.
    Keep "Auto-add sub-issues to project" and "Auto-close issue".
 
-4. **Labels.** Run `"${CLAUDE_PLUGIN_ROOT}/scripts/issue.sh" labels` (creates or updates all 11).
+4. **Labels.** Run `"${CLAUDE_PLUGIN_ROOT}/scripts/issue.sh" labels` (creates or updates all 12).
 
 5. **Repository settings.** Squash merge only, and delete branches after merge:
    ```bash
    gh repo edit <owner>/<repo> --enable-squash-merge --enable-merge-commit=false \
      --enable-rebase-merge=false --delete-branch-on-merge
    ```
-   Then try to protect `main` (PRs required, no force pushes, linear history):
+   Then protect `main`: PRs required, administrators included (so nobody, not even this
+   account, can push to `main` directly), no force pushes, linear history:
    ```bash
-   echo '{"required_status_checks":null,"enforce_admins":false,
+   echo '{"required_status_checks":null,"enforce_admins":true,
      "required_pull_request_reviews":{"required_approving_review_count":0},
      "restrictions":null,"required_linear_history":true,
      "allow_force_pushes":false,"allow_deletions":false}' \
    | gh api -X PUT repos/<owner>/<repo>/branches/main/protection --input -
    ```
    Approvals stay at 0 because every squad role uses the same GitHub account, and GitHub does
-   not let an account approve its own PR. If the call fails (HTTP 403 on private repos
+   not let an account approve its own PR: the Reviewer's verdict is a review comment plus the
+   `review:passed` label, and the Team Lead merges (see board-conventions, "Review and merge"). If the call fails (HTTP 403 on private repos
    without GitHub Pro/Team, or missing admin rights), do not stop: tell the stakeholder that
    squad will still follow the PR-only flow, and how to enable protection later (make the
    repo public or upgrade, then re-run setup). Once CI exists, add its check name to
@@ -101,7 +103,7 @@ must do by hand.
 
 - `board.sh list Todo` runs without errors.
 - `.squad/config.yml` has every id under `ids:` (status, priority and size options included).
-- All 11 labels exist; no conflicting built-in workflow remains enabled (or the stakeholder
+- All 12 labels exist; no conflicting built-in workflow remains enabled (or the stakeholder
   explicitly chose to keep it).
 
 ## Never

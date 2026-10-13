@@ -26,6 +26,7 @@ LABELS='[
  {"name":"type:report","color":"c5def5","description":"Stakeholder progress report"},
  {"name":"qa:failed","color":"b60205","description":"QA found at least one bug"},
  {"name":"review:changes","color":"fbca04","description":"Reviewer requested changes"},
+ {"name":"review:passed","color":"0e8a16","description":"Reviewer confirmed; waiting for Team Lead final check and merge"},
  {"name":"needs-split","color":"f9d0c4","description":"Too large; must be split into smaller tasks"},
  {"name":"needs-rebase","color":"fef2c0","description":"PR conflicts with main; needs a rebase"},
  {"name":"needs-human","color":"000000","description":"Escalated to the stakeholder"},

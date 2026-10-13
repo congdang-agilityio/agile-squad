@@ -15,7 +15,7 @@ quoted below are defaults; always read the real values from `limits` and `parall
 | `Todo` | Task ready to be picked up | Team Lead; QA (bugs); Reviewer (rework) |
 | `In Progress` | A developer is working on it | Dev |
 | `In Review` | PR open, awaiting review | Dev |
-| `QA` | Merged, awaiting testing | Reviewer |
+| `QA` | Merged, awaiting testing | Team Lead (after final check and merge) |
 | `Done` | QA passed, ready to deploy | QA |
 | `Released` | Live in production | DevOps |
 
@@ -40,7 +40,7 @@ Releases are grouped by repository **milestones**.
 ## 3. Labels
 
 `type:epic`, `type:story`, `type:task`, `type:bug`, `type:report`, `qa:failed`,
-`review:changes`, `needs-split`, `needs-rebase`, `needs-human`, `blocked`
+`review:changes`, `review:passed`, `needs-split`, `needs-rebase`, `needs-human`, `blocked`
 
 ## 4. Issue relationships
 
@@ -58,7 +58,21 @@ Releases are grouped by repository **milestones**.
 - Conventional Commits (`feat:`, `fix:`, `chore:`, `test:`, `docs:`, `refactor:`)
 - PR title: `<type>: <summary> (#<issue>)`; body contains `Closes #<issue>` and the
   acceptance-criteria checklist
-- **Squash** merge only. `main` is protected and CI must be green.
+- **Nobody pushes to `main`.** A developer creates the task branch from the latest `main`
+  *before* writing any code, commits only there, and delivers through a PR. Branch protection
+  on `main` includes administrators (`enforce_admins`), so a direct push is rejected.
+- **Squash** merge only, CI must be green.
+
+### Review and merge (one GitHub account)
+All roles share one GitHub account, and GitHub forbids approving your own PR, so approval is
+expressed as a review comment plus a label, never `gh pr review --approve`:
+1. The **Reviewer** posts its verdict with `gh pr review --comment`. PASS → label
+   `review:passed`. Changes needed → label `review:changes`, task back to `Todo`.
+   The Reviewer never merges.
+2. The **Team Lead** takes PRs labeled `review:passed`, does the final check (the review
+   comment says PASS for the current head commit, CI green, no conflicts, scope matches the
+   task), then squash-merges, moves the task to `QA`, and labels any open PR that now
+   conflicts `needs-rebase`. If the final check fails, it removes `review:passed` and comments why.
 
 ## 6. Sizing rules
 
@@ -96,7 +110,7 @@ Releases are grouped by repository **milestones**.
 - Each developer slot gets its own worktree, port (`port_base + slot`) and test database
   (`<test_db_prefix>_<slot>`).
 - Developers rebase on the latest `main` before opening a PR. When a merge makes another open
-  PR conflict, the Reviewer labels it `needs-rebase`; the PM dispatches a developer in
+  PR conflict, the Team Lead labels it `needs-rebase`; the PM dispatches a developer in
   `rebase` mode.
 - If more than `parallel.max_open_prs` PRs wait in `In Review`, the PM dispatches no new
   developers until the queue drains.

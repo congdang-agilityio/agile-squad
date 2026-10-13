@@ -44,6 +44,9 @@ Rules:
 | Status | Meaning | `next` | Extra fields |
 |---|---|---|---|
 | `planned` | Tasks created, waves written to the board | `dispatch` | `waves` (list of lists of issue numbers), `serial`, `risks`, `plan_file` |
+| `merged` | Mode `merge`: final check passed, squash-merged, task moved to `QA` | `qa` | `pr`, `issue`, `rebase_needed` (list of PRs labeled) |
+| `merge_rejected` | Mode `merge`: final check failed, `review:passed` removed | `review` or `rework` | `pr`, `issue`, `reasons` |
+| `needs_rebase` | Mode `merge`: PR conflicts with `main`, labeled `needs-rebase` | `rebase` | `pr`, `issue` |
 | `story_too_big` | A story needs more than `story_max_tasks` tasks | `ba_split` | `story`, `suggested_split` |
 | `blocked` | Cannot plan (missing info, AC conflict) | `ask_stakeholder` | — |
 
@@ -60,7 +63,7 @@ Rules:
 
 | Status | Meaning | `next` | Extra fields |
 |---|---|---|---|
-| `approved_merged` | Approved, squash-merged, task moved to `QA` | `qa` | `pr`, `issue`, `rebase_needed` (list of PRs labeled) |
+| `review_passed` | Verdict PASS posted as a review comment, labeled `review:passed` | `lead_merge` | `pr`, `issue`, `head_sha`, `findings` (`{nit}` count) |
 | `changes_requested` | Blockers or should-fix found, task back to `Todo` | `rework` | `pr`, `issue`, `attempts`, `findings` (`{blocker, should_fix, nit}` counts) |
 | `needs_split` | PR too large or multi-purpose | `plan` | `pr`, `issue` |
 | `needs_rebase` | PR conflicts with `main` | `rebase` | `pr`, `issue` |
