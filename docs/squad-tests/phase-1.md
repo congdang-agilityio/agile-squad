@@ -37,8 +37,10 @@ Run it again with: `cd <sandbox clone> && bash docs/squad-tests/phase-1.sh <path
    `get` now reads the issue directly, `ready-tasks` resolves unlisted dependencies directly.
 
 ## Environment limits found (affect later phases)
-- The sandbox is **private on a free plan**: branch protection returns HTTP 403. Squash-only
-  merges and delete-branch-on-merge are set.
-- Every role uses one GitHub account, and GitHub does not allow approving your own PR, so
-  `gh pr review --approve` will fail in Phase 4. Required approvals are set to 0 in setup.
-- GitHub Environment required reviewers (GATE 3) on private repos also depend on the plan.
+- Sandbox made **public** on stakeholder request; branch protection on `main` is now active
+  (PRs required, linear history, no force pushes, 0 required approvals).
+- **Self-approval verified impossible:** PR #31 by `congdang-agilityio` →
+  `gh pr review --approve` fails with "Can not approve your own pull request".
+- **Second-account approval verified:** `GH_TOKEN="$(gh auth token -u code-for-food)" gh pr review 31 --approve`
+  succeeded (review state APPROVED by code-for-food) while the active account stayed
+  `congdang-agilityio`. PR #31 was closed and its branch deleted.
