@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Shared helpers for squad scripts. Source it; do not execute it.
+# shellcheck disable=SC2034  # variables here are used by the scripts that source this file
 # Requires: bash 4+, gh, jq, awk, git.
 
 if ((BASH_VERSINFO[0] < 4)); then

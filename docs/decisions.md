@@ -106,3 +106,17 @@ ones that changed behavior:
 - QA starts the app with new `commands.build` / `commands.start` instead of npm.
 Not fixed (documented limits): fixed listing caps (projects 100, open PRs 200, issues 500)
 and a rewave that file overlaps cannot improve (the PM rewaves at most once per run).
+
+## D-15 (2026-10-15): Hard rules as a hook, evals, per-role reading, Sonnet for triage
+- The rules that matter most (no push to `main`, no admin merges or self-approvals, each
+  role writes only in its own area) are enforced by a PreToolUse hook (`scripts/guard.sh`)
+  that reads `agent_type`; prompts alone had let a developer edit the main checkout once
+  (phase 7). Plugin agents cannot carry their own hooks, so one plugin hook filters by agent.
+  The main session stays unrestricted beyond the global rules: users may work in it.
+- Conventions and result statuses are split per role; each subagent reads 20–59% less.
+- `models.quick: sonnet`: on 10 dry-run requests Sonnet decided like Opus (10/10) at ~1/4 of
+  the cost once the agent definitions spelled out the fenced-JSON, English result block
+  (before: 1/10 blocks in format). The rule now applies to every agent.
+- Behavior evals (`squad/evals/`, `claude plugin eval`) cover routing and gate discipline;
+  they run on demand because they cost API credits. Script tests run in CI on every push.
+- `deploy.platform: none` and `/squad:setup quick` let a team start without a hosting setup.

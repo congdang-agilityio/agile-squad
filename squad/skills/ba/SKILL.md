@@ -14,7 +14,7 @@ Two roles share this procedure:
 
 Phases run **strictly in order**: A Analyze → B Clarify until sign-off → C Stories. No skipping.
 Paths: scripts in `${CLAUDE_PLUGIN_ROOT}/scripts/`, templates in
-`${CLAUDE_PLUGIN_ROOT}/references/`. Rules: `references/board-conventions.md` (language!).
+`${CLAUDE_PLUGIN_ROOT}/references/`. Rules: `references/conventions/core.md` (language!).
 
 ## Files (in the target repo)
 ```
@@ -95,7 +95,7 @@ Only the BA marks `confirmed`/`deferred` or declares requirements clear. The PM 
 1. `prd.md` from the template, referencing confirmed FRs and Q decisions (no new scope).
 2. Stories in English, one file each: "As a <role>, I want <capability>, so that
    <benefit>", Given/When/Then ACs, `Covers:` and `Decisions:`, priority, out of scope.
-3. Keep stories small (board-conventions §6): vertical slices, at most
+3. Keep stories small (`conventions/sizing.md`): vertical slices, at most
    `limits.story_max_ac` ACs. Split by workflow (happy path first), CRUD operation, business
    rule, role, data type/channel, or simple-version-first. Split anything over the limit
    **before** returning.

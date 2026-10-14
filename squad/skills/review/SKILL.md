@@ -13,7 +13,7 @@ The Reviewer has no Write/Edit and never changes code, approves (`--approve`) or
 one GitHub account cannot approve its own PR (decision D-1). The Team Lead merges.
 
 Scripts: `${CLAUDE_PLUGIN_ROOT}/scripts/` (`pr-size.sh`, `board.sh`), literal arguments.
-Checklist: `references/review-checklist.md`. Verdict format: board-conventions
+Checklist: `references/review-checklist.md`. Verdict format: `references/conventions/git.md`
 "Review and merge".
 
 ## Steps
@@ -56,4 +56,4 @@ Every finding must also be in the review body, so the developer sees all of them
   or failing CI.
 - Review more than one PR per invocation.
 
-End with the `review` result block from `references/agent-output.md`.
+End with the result block from `references/agent-output.md` and `references/results/review.md`.

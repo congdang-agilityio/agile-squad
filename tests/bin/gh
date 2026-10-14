@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Fake gh for squad tests. The test defines the responses in $GH_STUB, a bash file with a
+# function `respond` that receives gh's arguments and prints JSON (or returns non-zero).
+# Like gh, `--jq`/`-q <filter>` is applied to the response. Every call is logged to $GH_LOG.
+set -uo pipefail
+echo "gh $*" >> "${GH_LOG:-/dev/null}"
+filter="" args=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --jq|-q) filter="$2"; shift 2 ;;
+    *) args+=("$1"); shift ;;
+  esac
+done
+# shellcheck source=/dev/null
+source "${GH_STUB:?GH_STUB not set}"
+out="$(respond "${args[@]}")" || exit $?
+if [[ -n "$filter" ]]; then jq -r "$filter" <<<"$out"; else printf '%s\n' "$out"; fi

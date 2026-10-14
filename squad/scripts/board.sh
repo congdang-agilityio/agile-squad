@@ -342,6 +342,7 @@ cmd_bootstrap() {
   fi
   PROJECT_ID="$(gh project view "$number" --owner "$OWNER" --format json | jq -r .id)" \
     || die "project #$number not found for $OWNER"
+  # shellcheck disable=SC2034  # read by helpers after bootstrap
   PROJECT_NUMBER="$number"
 
   local linked

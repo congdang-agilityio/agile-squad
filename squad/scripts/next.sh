@@ -68,6 +68,8 @@ gh pr list --repo "$OWNER/$REPO" --state open --limit 200 \
   --json number,title,body,labels,headRefName,isDraft,closingIssuesReferences > "$T/prs.json"
 gh api --paginate "repos/$OWNER/$REPO/milestones?state=open&per_page=100" | jq -s 'add // []' > "$T/milestones.json"
 gh api "repos/$OWNER/$REPO/releases?per_page=30" --jq '[.[] | {name, tag_name, id, draft}]' > "$T/drafts.json"
+platform="$(cfg '.deploy.platform')"
+if [[ "$platform" == none ]]; then echo '[]' > "$T/milestones.json"; fi   # no deploys: no release gates
 wf="$(cfg '.deploy.staging_workflow')"; wf="${wf:-deploy.yml}"
 gh run list --repo "$OWNER/$REPO" --workflow "$wf" --event workflow_dispatch --limit 10 \
   --json databaseId,status,conclusion,url,createdAt 2>/dev/null > "$T/runs.json" || echo '[]' > "$T/runs.json"
@@ -91,6 +93,7 @@ done
 jq -s . "$T/reqs.jsonl" > "$T/reqs.json"
 "$SQUAD_SCRIPTS/board.sh" ready-tasks > "$T/ready.json"
 
+echo "${platform:-railway}" > "$T/platform"
 python3 - "$T" "$scope" "$(cfg '.parallel.max_parallel_dev')" "$(cfg '.parallel.max_open_prs')" "$(cfg '.parallel.max_agents')" "$(cfg '.models')" <<'PY'
 import json, sys
 T, scope, maxdev, maxpr = sys.argv[1], sys.argv[2], int(sys.argv[3] or 2), int(sys.argv[4] or 4)
@@ -276,11 +279,12 @@ if dev_now and later and len(dev_now) < len(free):
 
 # Done stories with Done tasks in no milestone: nothing will release them until the
 # stakeholder names one
-unreleased = sorted(s["number"] for s in items if typ(s) == "story" and s["status"] == "Done"
+deploys = open(f"{T}/platform").read().strip() != "none"
+unreleased = [] if not deploys else sorted(s["number"] for s in items if typ(s) == "story" and s["status"] == "Done"
                     and any(i.get("parent") == s["number"] and i["status"] == "Done" and not i.get("milestone")
                             for i in items))
 # quick-lane tasks have no story: a Done one without a milestone is unreleased too
-unreleased += sorted(i["number"] for i in items if "quick" in i["labels"] and i["status"] == "Done"
+unreleased += [] if not deploys else sorted(i["number"] for i in items if "quick" in i["labels"] and i["status"] == "Done"
                      and not i.get("milestone") and in_scope(i["number"]))
 if unreleased:
     notes.append(f"stories or quick tasks Done without a milestone (not releasable yet): {unreleased}")

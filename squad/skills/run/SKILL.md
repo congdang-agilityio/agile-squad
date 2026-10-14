@@ -72,6 +72,7 @@ small tasks, from config `models`); without it, use the agent's default.
 - the same action fails twice in a row.
 
 ## Releases
+Skipped when `deploy.platform` is `none` (`next.sh` then lists nothing as unreleased).
 `next.sh` lists `unreleased`: Done stories whose tasks belong to no milestone, and Done
 quick-lane tasks without one, so nothing will deploy them (a quick task is passed in
 `stories=` like a story). Ask the stakeholder whether to release them and under which milestone title

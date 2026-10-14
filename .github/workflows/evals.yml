@@ -1,0 +1,38 @@
+name: evals
+
+# Behavior evals cost API credits, so they run on demand: Actions → evals → Run workflow.
+# Needs the repository secret ANTHROPIC_API_KEY.
+on:
+  workflow_dispatch:
+    inputs:
+      runs:
+        description: runs per case
+        default: "2"
+      max_cost_usd:
+        description: hard cost ceiling
+        default: "10"
+
+permissions:
+  contents: read
+
+jobs:
+  evals:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm install -g @anthropic-ai/claude-code
+      - name: claude plugin eval
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          cd squad
+          claude plugin eval . --trust-plugin --scaffold --ablation none \
+            --runs "${{ inputs.runs }}" --max-cost-usd "${{ inputs.max_cost_usd }}" \
+            --threshold 0.8 --no-publish --json ../eval-results.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-results
+          path: |
+            eval-results.json
+            squad/evals/results/

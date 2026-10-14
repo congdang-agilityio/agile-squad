@@ -29,8 +29,8 @@ lists may be written `#34,#35` or `34 35`; the scripts accept both.
   the quick lane (`/squad:fix`). See "Mode quick".
 
 Scripts: `${CLAUDE_PLUGIN_ROOT}/scripts/` (`board.sh`, `issue.sh`, `waves.sh`, `pr.sh`). Call
-them with literal arguments, no shell variables. Rules: `references/board-conventions.md`
-(§5 git, §6 sizing, §7 parallel). Templates: `references/task-template.md`,
+them with literal arguments, no shell variables. Rules: `references/conventions/` (`core`,
+`git`, `sizing`, `parallel`). Templates: `references/task-template.md`,
 `references/dispatch-plan-template.md`. Everything you write is English.
 
 ## Mode plan
@@ -47,7 +47,7 @@ them with literal arguments, no shell variables. Rules: `references/board-conven
    not in this batch, and anything with an unclear or conflicting AC (do not guess: `blocked`).
 
 ### 2. Split each story into tasks
-- Follow board-conventions §6: one thing, one layer, independently mergeable, own DoD, order
+- Follow `conventions/sizing.md`: one thing, one layer, independently mergeable, own DoD, order
   schema → service → API → UI → wiring → e2e. Target XS and S; M only with `Why not smaller`.
 - A brand-new repo starts with one **scaffold** task (project setup, test runner, lint, CI
   workflow `.github/workflows/<deploy.ci_workflow>` running `commands.lint` and
@@ -130,4 +130,4 @@ them with literal arguments, no shell variables. Rules: `references/board-conven
 - Put dependent or file-overlapping tasks in one wave, or set Wave by hand.
 - Create a task bigger than M or without `Files (expected)` and a Definition of Done.
 
-End with the `team-lead` result block from `references/agent-output.md`.
+End with the result block from `references/agent-output.md` and `references/results/team-lead.md`.

@@ -118,7 +118,7 @@ ingest_github() { # github.com/<o>/<r>/(issues|pull|discussions)/<n>
   n="${n%%[#?]*}"
   case "$kind" in
     issues|pull)
-      local sub=issue; [[ "$kind" == pull ]] && sub=pr
+      local sub="issue"; [[ "$kind" == pull ]] && sub="pr"
       gh "$sub" view "$n" -R "$o/$r" --json title,body,comments,author,state \
         --jq '"# \(.title)\n\n_by @\(.author.login), \(.state)_\n\n\(.body)\n" + ([.comments[] | "\n## Comment by @\(.author.login)\n\n\(.body)\n"] | join(""))' \
         > "$TMP/body.md" 2>"$TMP/err" || { grep -qiE "could not resolve|not found|404" "$TMP/err" && fail 6 "GitHub item not found: $SRC"; fail 4 "cannot read $SRC with the current gh account: $(cat "$TMP/err")"; }

@@ -1,0 +1,10 @@
+F1	fit	Trên trang đăng ký, đổi chữ nút "Create account" thành "Sign up now" (tiếng Anh); tiếng Việt giữ nguyên.
+F2	fit	Tab trình duyệt ở trang quên mật khẩu chỉ hiện "TodoNow". Hãy để nó hiện "Forgot password · TodoNow" giống trang đăng nhập, bản tiếng Việt dịch tương ứng.
+F3	fit	Nâng nodemailer từ 10.1.0 lên bản patch mới nhất của 10.1.x.
+F4	fit	Thông báo lỗi "This email is already registered." nên thành "This email is already registered. Log in instead?" (tiếng Việt dịch tương ứng).
+F5	fit	Trang privacy: thêm câu "Questions? Contact support@todonow.app." vào cuối mục "How we protect your data", tiếng Việt dịch tương ứng.
+B1	big	Thêm đăng nhập bằng Google.
+B2	big	Cho phép người dùng chia sẻ task cho cả gia đình.
+B3	big	Làm cho app đẹp hơn.
+B4	big	Thêm trang hồ sơ cá nhân để đổi tên hiển thị và mật khẩu.
+B5	big	Chuyển database từ Postgres sang MongoDB.

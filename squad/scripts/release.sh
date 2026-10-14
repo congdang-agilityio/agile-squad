@@ -140,10 +140,10 @@ cmd_draft() {
 workflow() { local wf; wf="$(cfg '.deploy.staging_workflow')"; echo "${wf:-deploy.yml}"; }
 
 cmd_deploy() {
-  local sha="${1:?usage: release.sh deploy <sha>}" wf since i run
+  local sha="${1:?usage: release.sh deploy <sha>}" wf since _ run
   wf="$(workflow)"; since="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   gh workflow run "$wf" --repo "$OWNER/$REPO" -f ref="$sha" -f production=true >/dev/null
-  for i in $(seq 1 20); do   # the new run shows up after a few seconds
+  for _ in $(seq 1 20); do   # the new run shows up after a few seconds
     sleep 5
     run="$(gh run list --repo "$OWNER/$REPO" --workflow "$wf" --event workflow_dispatch --limit 10 \
              --json databaseId,url,createdAt \

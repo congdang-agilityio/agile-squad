@@ -1,6 +1,6 @@
 ---
 name: setup
-description: "Initialize squad in the current repository: create or reuse the GitHub Projects board with the squad Status columns and Priority/Size/Wave/Agent/Attempts fields, create the labels, write .squad/config.yml, and configure merges, branch protection and .gitignore. Use the first time squad is used in a repository, when .squad/config.yml is missing, or when a board script reports missing ids."
+description: "Initialize squad in the current repository (or `quick`: board, labels and commands only, no deploys, in about two minutes): create or reuse the GitHub Projects board with the squad Status columns and Priority/Size/Wave/Agent/Attempts fields, create the labels, write .squad/config.yml, and configure merges, branch protection and .gitignore. Use the first time squad is used in a repository, when .squad/config.yml is missing, or when a board script reports missing ids."
 ---
 
 # squad: setup
@@ -17,6 +17,12 @@ Runs in the **main session** (PM). No subagent: it needs a few stakeholder decis
 
 - The current directory is a clone of the target repository with a GitHub remote.
 - Optional: an existing project number to reuse (`--project N`) or a project title.
+- Optional: `quick` (`/squad:setup quick`): a two-minute setup to try squad. Run only steps
+  1, 2, 3, 4, 6, 7 and 9, with every question answered by its default (new board, delete
+  conflicting workflows on it, detected commands), and set `deploy.platform: none` (no deploy
+  workflow, Environments or secrets: `Done` ends the flow). Skip branch protection (step 5)
+  and tell the stakeholder that squad still never pushes to `main`. Finish with step 10
+  (doctor; commit through a PR). Later, `/squad:setup` without `quick` adds the rest.
 
 ## Steps
 
@@ -62,7 +68,7 @@ Runs in the **main session** (PM). No subagent: it needs a few stakeholder decis
    ```
    Approvals stay at 0 because every squad role uses the same GitHub account, and GitHub does
    not let an account approve its own PR: the Reviewer's verdict is a review comment plus the
-   `review:passed` label, and the Team Lead merges (see board-conventions, "Review and merge"). If the call fails (HTTP 403 on private repos
+   `review:passed` label, and the Team Lead merges (see `references/conventions/git.md`). If the call fails (HTTP 403 on private repos
    without GitHub Pro/Team, or missing admin rights), do not stop: tell the stakeholder that
    squad will still follow the PR-only flow, and how to enable protection later (make the
    repo public or upgrade, then re-run setup). Once CI exists, add its check name to

@@ -23,7 +23,8 @@ are unsure, let the Team Lead decide (step 2).
 1. **Request.** Take the stakeholder's words verbatim (their language is fine). If the
    request names no observable result ("make it better"), ask one question first.
 2. **Task.** Dispatch `squad:team-lead` with
-   `mode=quick request=<verbatim words> priority=<P> config=.squad/config.yml`.
+   `mode=quick request=<verbatim words> priority=<P> config=.squad/config.yml`, and as the
+   Agent call's `model` the config's `models.quick` when it is set.
    - `quick_planned` → tell the stakeholder in one short message: the task link, size and
      its Definition of Done. No gate: the request is theirs. If they object, close the task
      (`gh issue close <n> --reason "not planned"`) and start again from their words.
@@ -32,7 +33,7 @@ are unsure, let the Team Lead decide (step 2).
      (verbatim). Otherwise offer the `ba` skill.
 3. **Run.** Follow the `run` skill with `scope=#<task>` (default `max-steps=6`): developer →
    review → merge → QA. The `quick` flag and the cheaper models come from `next.sh`.
-4. **Release.** When the task is `Done`, it is already on staging if the deploy workflow
+4. **Release** (skip when `deploy.platform` is `none`). When the task is `Done`, it is already on staging if the deploy workflow
    deploys `main`. Ask whether to ship it to production now and under which milestone (an
    open one, or a patch such as `v0.3.1`); on an answer dispatch `squad:team-lead` with
    `mode=milestone milestone=<title> stories=#<task>`, then continue with the `run` skill

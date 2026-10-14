@@ -28,8 +28,8 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 BOARD="$SQUAD_SCRIPTS/board.sh"
 
 pr_json() { # mergeability is computed lazily by GitHub: poll while UNKNOWN
-  local pr="$1" j i
-  for i in 1 2 3 4 5 6; do
+  local pr="$1" j _
+  for _ in 1 2 3 4 5 6; do
     j="$(gh pr view "$pr" --repo "$OWNER/$REPO" --json number,state,baseRefName,headRefName,headRefOid,mergeable,labels,reviews,closingIssuesReferences,files,title,url)" \
       || die "PR #$pr not found"
     [[ "$(jq -r .mergeable <<<"$j")" != UNKNOWN || "$(jq -r .state <<<"$j")" != OPEN ]] && break

@@ -13,8 +13,8 @@ The PM dispatches a fresh `developer` subagent per task:
 (`/squad:dev <issue>`), dispatch the `developer` subagent instead of doing the work here.
 
 Scripts: `${CLAUDE_PLUGIN_ROOT}/scripts/` (`worktree.sh`, `board.sh`, `issue.sh`,
-`pr-size.sh`), called with literal arguments. Rules: `references/board-conventions.md`
-(§5 git, §6 sizing). Commands and limits come from the config.
+`pr-size.sh`), called with literal arguments. Rules: `references/conventions/`
+(`core`, `git`, `sizing`). Commands and limits come from the config.
 
 ## Mode implement
 1. **Check.** `board.sh get <n>`: the task is in `Todo` (or `In Progress` with `Agent`
@@ -90,4 +90,4 @@ For a PR labeled `needs-rebase`.
 - Open a PR over the size limit, or force-push except in rebase mode (`--force-with-lease`).
 - Put secrets in code, tests, commits or PR text.
 
-End with the `dev` result block from `references/agent-output.md`.
+End with the result block from `references/agent-output.md` and `references/results/dev.md`.

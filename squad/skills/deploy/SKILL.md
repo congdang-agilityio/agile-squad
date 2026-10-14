@@ -72,4 +72,4 @@ arguments, one command per call (no pipes, loops or multi-line quoted text). Wor
 - Release with the gate not met, or move items to `Released` before production succeeded.
 - Edit code (a failure becomes a bug for the team).
 
-End with the `devops` result block from `references/agent-output.md`.
+End with the result block from `references/agent-output.md` and `references/results/devops.md`.

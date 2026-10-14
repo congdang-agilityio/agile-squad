@@ -13,7 +13,7 @@ under "Decide", for an open story whose tasks are all `Done` (the story is not i
 `qa-tester` subagent instead. QA never edits code and never weakens a criterion.
 
 Scripts: `${CLAUDE_PLUGIN_ROOT}/scripts/` (`worktree.sh`, `board.sh`, `issue.sh`), literal
-arguments. Template: `references/bug-template.md`. Rules: `references/board-conventions.md`.
+arguments. Template: `references/bug-template.md`. Rules: `references/conventions/core.md`.
 
 ## 1. Prepare
 1. `board.sh get <n>`: the item must be in `QA` (not for `story=true`). Read it (`gh issue view <n> --json title,body,labels,closedByPullRequestsReferences,comments`),
@@ -74,4 +74,4 @@ arguments. Template: `references/bug-template.md`. Rules: `references/board-conv
 - Pass on "tests are green" alone when a criterion can be observed in the running app.
 - Leave the app or services you started running, or test anywhere but `.worktrees/qa`.
 
-End with the `qa` result block from `references/agent-output.md`.
+End with the result block from `references/agent-output.md` and `references/results/qa.md`.

@@ -1,0 +1,50 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck
+        run: shellcheck -S warning -x squad/scripts/*.sh tests/*.sh tests/bin/gh
+      - name: SKILL.md files stay at most 150 lines
+        run: |
+          fail=0
+          for f in squad/skills/*/SKILL.md; do
+            n=$(wc -l < "$f"); [ "$n" -le 150 ] || { echo "$f has $n lines"; fail=1; }
+          done
+          exit $fail
+      - name: validate plugin and marketplace manifests
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          claude plugin validate .
+          claude plugin validate squad
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: bash 4+ on macOS
+        if: runner.os == 'macOS'
+        run: |
+          brew install bash
+          echo "$(brew --prefix)/bin" >> "$GITHUB_PATH"
+      - name: git identity for test repositories
+        run: |
+          git config --global user.email ci@example.com
+          git config --global user.name ci
+          git config --global init.defaultBranch main
+      - name: tests
+        run: bash --version | head -1 && tests/run.sh

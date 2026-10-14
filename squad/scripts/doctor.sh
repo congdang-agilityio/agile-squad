@@ -84,7 +84,9 @@ else add merge_permission warn "no Bash(gh pr merge:*) allow rule: auto mode blo
   'add "Bash(gh pr merge:*)" to permissions.allow in .claude/settings.json'; fi
 
 wf="$(cfg .deploy.staging_workflow)"; wf="${wf:-deploy.yml}"
-if [[ -f "$root/.github/workflows/$wf" ]]; then add deploy_workflow ok ".github/workflows/$wf"
+deploys=1; [[ "$(cfg .deploy.platform)" == none ]] && deploys=0
+if [[ "$deploys" == 0 ]]; then add deploy_workflow ok "deploys are off (deploy.platform: none)"
+elif [[ -f "$root/.github/workflows/$wf" ]]; then add deploy_workflow ok ".github/workflows/$wf"
 else add deploy_workflow warn ".github/workflows/$wf not found: releases cannot deploy" "copy templates/deploy.yml (setup step 8)"; fi
 
 stale=()
@@ -144,7 +146,8 @@ if [[ -n "$OWNER" && -n "$REPO" ]]; then
 
   envs="$(gh api "repos/$OWNER/$REPO/environments" --jq '[.environments[] | {name, reviewers: ([.protection_rules[]? | select(.type == "required_reviewers")] | length)}]' 2>/dev/null || echo '[]')"
   pe="$(cfg .deploy.production_environment)"; pe="${pe:-production}"
-  for e in staging "$pe"; do
+  [[ "$deploys" == 1 ]] || pe=""
+  for e in ${pe:+staging "$pe"}; do
     if ! jq -e --arg e "$e" '.[] | select(.name == $e)' >/dev/null <<<"$envs"; then
       add "environment:$e" warn "GitHub Environment $e is missing" "setup step 8"; continue
     fi

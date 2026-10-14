@@ -1,6 +1,6 @@
 {
   "name": "squad",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A full software team for Claude Code (PM, BA, Team Lead, Developers, Reviewer, QA, DevOps, Reporter) coordinated through a GitHub Projects board.",
   "author": {
     "name": "Cong Dang"

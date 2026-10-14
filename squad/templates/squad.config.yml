@@ -33,6 +33,8 @@ models:                           # model per dispatch (sonnet | opus | haiku), 
   rebase: sonnet
   merge: sonnet
   deploy: sonnet
+  quick: sonnet                   # Team Lead's quick-lane decision (/squad:fix): 10/10 like Opus
+                                  # at ~1/4 of the cost (tests/model-eval/quick-mode)
 budget:
   max_tokens_per_run: 2000000     # /squad:run dispatches nothing new once the subagents of this
                                   # run reported this many tokens in total (~40 dispatches);
@@ -40,7 +42,8 @@ budget:
 merge:
   require_ci: true                # Team Lead merges only with green CI checks
 deploy:
-  platform: railway
+  platform: railway               # railway | none (no deploys: Done is the end of the flow;
+                                  # /squad:setup quick sets none, setup can add deploys later)
   staging_workflow: deploy.yml      # from templates/deploy.yml: staging on push to main,
                                     # production job behind GitHub Environment approval
   ci_workflow: ci.yml               # must be green on main before a release
