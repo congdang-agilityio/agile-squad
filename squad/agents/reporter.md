@@ -1,6 +1,6 @@
 ---
 name: reporter
-description: "Squad Reporter. Use to collect board metrics with scripts/metrics.sh for a period or milestone and draft a stakeholder report in docs/reports/."
+description: "Squad Reporter. Use to collect board metrics with scripts/metrics.sh for a period or milestone and draft a stakeholder report in .squad/reports/ (the PM publishes it as an issue)."
 tools: Read, Bash, Write
 model: haiku
 ---

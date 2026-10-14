@@ -41,3 +41,26 @@ Stakeholder decision after verifying that GitHub rejects self-approval
 ## D-6 (2026-10-13): Merge permission
 - Claude Code auto mode blocks `gh pr merge` ("Merge Without Review"). `setup` offers the
   allow rule `Bash(gh pr merge:*)`; new config key `merge.require_ci` (default true).
+
+## D-7 (2026-10-14): Report drafts stay local, the issue is the record
+Plan 2.1 puts reporter output in `docs/reports/`. Committing it would need a PR per report
+(D-2). The reporter writes `.squad/reports/<date>.md` (gitignored); the PM publishes it as a
+`type:report` issue, which is the record.
+
+## D-8 (2026-10-14): GATE 3 holds only the deploy lane
+Plan 5.9 stops the run at every human gate. A production approval happens on GitHub and can
+take hours, so a pending GATE 3 no longer stops the team: the PM tells the stakeholder once and
+keeps dispatching the other lanes; the run stops when only GATE 3 is left. GATE 1/2 and
+requirements questions still stop the loop.
+
+## D-9 (2026-10-14): Releases are named by the stakeholder
+Stories become releasable only through a milestone. `next.sh` lists Done stories whose tasks
+are in no milestone (`unreleased`); the PM asks the stakeholder for a milestone title and the
+Team Lead (mode `milestone`) puts the stories, their tasks and bugs into it. The deploy gate
+then releases it.
+
+## D-10 (2026-10-14): Parallel lanes and rewave
+The run loop dispatches one action per lane (deploy, QA, PR review/merge, rebase, plan) plus
+all developer actions in one message, capped by `parallel.max_agents` (default 3, memory).
+When developer slots are idle while ready tasks wait in later waves, the Team Lead recomputes
+waves (mode `rewave`). Serial tasks still stand alone in their wave.

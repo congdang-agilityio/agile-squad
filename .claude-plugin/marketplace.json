@@ -1,0 +1,15 @@
+{
+  "name": "cff-skills",
+  "description": "Claude Code plugins. squad: a software team that works through a GitHub Projects board.",
+  "owner": {
+    "name": "Cong Dang"
+  },
+  "plugins": [
+    {
+      "name": "squad",
+      "source": "./squad",
+      "description": "A full software team for Claude Code (PM, BA, Team Lead, Developers, Reviewer, QA, DevOps, Reporter) coordinated through a GitHub Projects board.",
+      "version": "0.1.0"
+    }
+  ]
+}

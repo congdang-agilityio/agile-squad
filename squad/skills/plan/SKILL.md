@@ -1,6 +1,6 @@
 ---
 name: plan
-description: "Team Lead procedure: split approved stories (Backlog), needs-split tasks and QA bugs into small XS/S technical tasks with Files (expected), dependencies and Definition of Done, group them into parallel waves on the board and post the dispatch plan; or, in merge mode, do the final check of a PR labeled review:passed and squash-merge it. Use after GATE 2 story approval, when a task is labeled needs-split, when QA files bugs, or when a reviewed PR is waiting to merge."
+description: "Team Lead procedure: split approved stories (Backlog), needs-split tasks and QA bugs into small XS/S technical tasks with Files (expected), dependencies and Definition of Done, group them into parallel waves on the board and post the dispatch plan; recompute waves when developer slots are idle (rewave); put stories the stakeholder wants released into a milestone (milestone); or, in merge mode, do the final check of a PR labeled review:passed and squash-merge it. Use after GATE 2 story approval, when a task is labeled needs-split, when QA files bugs, or when a reviewed PR is waiting to merge."
 ---
 
 # squad: plan (Team Lead)

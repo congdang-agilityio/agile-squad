@@ -99,6 +99,8 @@ Only the BA marks `confirmed`/`deferred` or declares requirements clear. The PM 
    `limits.story_max_ac` ACs. Split by workflow (happy path first), CRUD operation, business
    rule, role, data type/channel, or simple-version-first. Split anything over the limit
    **before** returning.
+   Every story that adds a screen says how the user reaches it (a link, a redirect or the home
+   page) in an AC or `Decisions:`; if another story provides the way in, name that story.
 4. `stories.md`: index, **FR → Story traceability (every in-scope FR covered)**, size
    self-check. `epic.md`. Return `stories_ready`.
 
