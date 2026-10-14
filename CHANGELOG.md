@@ -3,6 +3,12 @@
 All notable changes to agile-squad. Versions follow [Semantic Versioning](https://semver.org);
 the plugin version lives in `squad/.claude-plugin/plugin.json` and the marketplace entry.
 
+## [0.3.1] - 2026-10-15
+
+### Fixed
+- Guard hook on macOS: paths through symlinks (`/var` → `/private/var`) were compared with
+  git's resolved root, so legitimate writes were blocked. Found by the new macOS CI job.
+
 ## [0.3.0] - 2026-10-15
 
 ### Added
@@ -11,7 +17,7 @@ the plugin version lives in `squad/.claude-plugin/plugin.json` and the marketpla
   worktree, the BA only under `docs/requirements/`, the reporter only under `.squad/reports/`,
   and the reviewer, QA, Team Lead and DevOps never edit files. Active only in repositories
   with `.squad/config.yml`.
-- **Test suite** (`tests/`, 63 tests) with a fake `gh`: config parsing, the guard hook,
+- **Test suite** (`tests/`, 65 tests) with a fake `gh`: config parsing, the guard hook,
   `next.sh` decisions on a fake board, waves, PR sizing, doctor. CI runs shellcheck, the
   tests on Linux and macOS, and plugin validation.
 - **Behavior evals** (`squad/evals/`, `claude plugin eval`): quick-lane routing, refusing a
@@ -50,6 +56,7 @@ the plugin version lives in `squad/.claude-plugin/plugin.json` and the marketpla
   reporter subagents on a GitHub Projects board; three human gates; parallel developers in
   worktrees; GitHub Actions deploys to Railway with production approval.
 
+[0.3.1]: https://github.com/congdang-agilityio/agile-squad/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/congdang-agilityio/agile-squad/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/congdang-agilityio/agile-squad/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/congdang-agilityio/agile-squad/releases/tag/v0.1.0

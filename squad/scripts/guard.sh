@@ -64,8 +64,10 @@ case "$tool" in Write|Edit|MultiEdit|NotebookEdit) ;; *) exit 0 ;; esac
 path="$(field .tool_input.file_path)"; [[ -n "$path" ]] || path="$(field .tool_input.notebook_path)"
 [[ -n "$path" ]] || exit 0
 [[ "$path" = /* ]] || path="$cwd/$path"
-# resolve .. segments without requiring the file to exist
-path="$(python3 -c 'import os,sys; print(os.path.normpath(sys.argv[1]))' "$path" 2>/dev/null || echo "$path")"
+# resolve .. segments and symlinks (macOS /var -> /private/var) without requiring the file
+# to exist, the same way git reports the repository root
+path="$(python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$path" 2>/dev/null || echo "$path")"
+root="$(python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$root" 2>/dev/null || echo "$root")"
 
 inside() { [[ "$path" == "$root/$1"* ]]; }
 case "$agent" in

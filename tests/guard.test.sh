@@ -29,6 +29,10 @@ eq "reporter writes under .squad/reports" "$(hook squad:reporter Write "$(fp "$R
 eq "reviewer can never edit" "$(hook squad:reviewer Edit "$(fp "$R/.worktrees/12/a.ts")")" 2
 eq "main session (PM) is not restricted" "$(hook "" Write "$(fp "$R/src/a.ts")")" 0
 eq "relative path is resolved from cwd" "$(hook squad:developer Write "$(fp "src/a.ts")" "$R/.worktrees/12")" 0
+L="$(mktemp -d)"; ln -s "$(dirname "$R")" "$L/link"   # like macOS /var -> /private/var
+eq "a repo reached through a symlink is the same repo" "$(hook squad:developer Write "$(fp "$L/link/work/.worktrees/12/a.ts")" "$L/link/work")" 0
+eq "a symlinked path outside the worktree is still blocked" "$(hook squad:developer Write "$(fp "$L/link/work/package.json")" "$L/link/work")" 2
+rm -rf "$L"
 O="$(new_repo)"
 eq "outside a squad repo nothing is blocked" "$(hook "" Bash "$(bash_in 'git push origin main')" "$O")" 0
 eq "other tools pass" "$(hook squad:reviewer Read '{"file_path":"/etc/hosts"}')" 0
