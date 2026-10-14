@@ -109,6 +109,40 @@ claude --plugin-dir /path/to/agile-squad/squad
 
 Các skill hiện dưới dạng `/squad:<tên>` và các agent dưới dạng `squad:<tên>`.
 
+## Đăng nhập Railway CLI
+
+DevOps làm việc với Railway qua Railway CLI, đăng nhập bằng **chính tài khoản của bạn**. Không
+có gì được lưu trong GitHub hay trong repository: không project token, không secret.
+
+1. **Cài CLI** (một lần cho mỗi máy), ví dụ `npm install -g @railway/cli` hoặc
+   `brew install railway`; xem [tài liệu Railway CLI](https://docs.railway.com/cli).
+2. **Đăng nhập** (một lần cho mỗi máy). Trong Claude Code gõ:
+   ```
+   ! railway login
+   ```
+   Lệnh này mở trình duyệt để đăng nhập OAuth. Trên máy không có trình duyệt (SSH, server), dùng
+   `! railway login --browserless`: lệnh in ra một đường link và mã ngắn để xác nhận từ thiết bị
+   bất kỳ.
+3. **Kiểm tra:** `railway whoami` hiện tài khoản của bạn. Sau khi setup,
+   `scripts/railway.sh check` phải liệt kê project của bạn cùng hai môi trường `staging` và
+   `production` (`/squad:doctor` chạy đúng bước kiểm tra này).
+
+Phiên đăng nhập này cho phép:
+
+| Ai | Được làm gì trên Railway |
+|---|---|
+| DevOps | deploy, thêm database, đặt biến môi trường không bí mật, đổi cài đặt service, tạo domain, redeploy, rollback, đọc log: trên **staging** thì tự làm, trên **production** chỉ khi có GATE 3 hoặc câu đồng ý của bạn, và được ghi lại trên issue |
+| QA, developer, Team Lead | chỉ đọc: trạng thái, log, quét lỗi, danh sách deployment, tên biến |
+| Không agent nào | xem hay đặt giá trị secret, xoá project, môi trường hay service, gọi thẳng `railway` CLI (hook bảo vệ chặn) |
+
+Secret vẫn do bạn giữ: khi một task cần secret (mật khẩu SMTP, API key), DevOps đưa bạn đúng
+lệnh cần chạy, ví dụ
+`! railway variable set SMTP_PASSWORD --stdin -p <project> -e production -s web`, và bạn tự
+nhập giá trị.
+
+Nếu phiên đăng nhập hết hạn, squad dừng với thông báo "not logged in to Railway"; chạy lại
+`! railway login`. `railway logout` thu hồi phiên đăng nhập trên máy này.
+
 ## Lần chạy đầu tiên trong một repository
 
 Mở Claude Code trong bản clone của repository đích (cần có GitHub remote) và chạy

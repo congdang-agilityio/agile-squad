@@ -106,6 +106,39 @@ claude --plugin-dir /path/to/agile-squad/squad
 
 Skills appear as `/squad:<name>` and agents as `squad:<name>`.
 
+## Railway CLI login
+
+DevOps works on Railway through the Railway CLI, signed in as **you**. Nothing is stored in
+GitHub or in the repository: no project tokens, no secrets.
+
+1. **Install the CLI** (once per machine), for example `npm install -g @railway/cli` or
+   `brew install railway`; see the [Railway CLI docs](https://docs.railway.com/cli).
+2. **Sign in** (once per machine). In Claude Code type:
+   ```
+   ! railway login
+   ```
+   It opens the browser for OAuth. On a machine without a browser (SSH, a server), use
+   `! railway login --browserless`: it prints a link and a short code to confirm from any device.
+3. **Check:** `railway whoami` shows your account. After setup,
+   `scripts/railway.sh check` must list your project with its `staging` and `production`
+   environments (`/squad:doctor` runs the same check).
+
+What this login allows:
+
+| Who | Can do on Railway |
+|---|---|
+| DevOps | deploy, add databases, set non-secret variables, change service settings, generate domains, redeploy, roll back, read logs: on **staging** by itself, on **production** only with GATE 3 or your quoted yes, recorded on the issue |
+| QA, developers, Team Lead | read only: status, logs, error scan, deployments, variable names |
+| Nobody (agents) | see or set secret values, delete projects, environments or services, call the `railway` CLI directly (the guard hook blocks it) |
+
+Secrets stay yours: when a task needs one (an SMTP password, an API key), DevOps gives you the
+exact command, for example
+`! railway variable set SMTP_PASSWORD --stdin -p <project> -e production -s web`, and you type
+the value yourself.
+
+If the session expires, squad stops with "not logged in to Railway"; run `! railway login`
+again. `railway logout` revokes the login on this machine.
+
 ## First run in a repository
 
 Open Claude Code in a clone of the target repository (it needs a GitHub remote) and run
