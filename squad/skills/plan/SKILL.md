@@ -22,6 +22,9 @@ The PM (main session) dispatches the `team-lead` subagent with one mode:
   each story, its tasks and their bugs in it), comment the list on the epic, and return
   `milestone_set` with `milestone` and `issues`. Change nothing else.
 
+- `mode=quick request=<stakeholder words, verbatim> [priority=P2] config=.squad/config.yml`:
+  the quick lane (`/squad:fix`). See "Mode quick".
+
 Scripts: `${CLAUDE_PLUGIN_ROOT}/scripts/` (`board.sh`, `issue.sh`, `waves.sh`, `pr.sh`). Call
 them with literal arguments, no shell variables. Rules: `references/board-conventions.md`
 (§5 git, §6 sizing, §7 parallel). Templates: `references/task-template.md`,
@@ -79,6 +82,20 @@ them with literal arguments, no shell variables. Rules: `references/board-conven
    `gh issue comment <epic> --body-file -`. Waves and serial reasons come from the script.
 3. Check: ≥ 80% of the new tasks are XS or S, every M has `Why not smaller`, every task has a
    Wave. Return `planned` with `waves`, `serial`, `risks`, `tasks`, `plan_comment` (URL).
+
+## Mode quick (one small change, no story)
+1. Read the request and the code it touches. It fits the quick lane only if it is **one task
+   of size XS or S**, its expected behavior is stated or obvious from the code (a bug against
+   existing behavior, a text or style change, a small refactor, a dependency bump), and it
+   needs no product decision. Otherwise create nothing and return `too_big_for_fix` with the
+   reason and either the questions to ask or "use /squad:ba" (several tasks, new behavior).
+2. Write the task body from `task-template.md` with `Story: none (quick lane)`, a
+   `## Request (verbatim)` section holding the stakeholder's words, and a DoD whose first item
+   is a test that fails before the change. `Depends on` lists open tasks whose
+   `Files (expected)` overlap (`board.sh list "In Progress"`, `board.sh list "In Review"`).
+3. `issue.sh create task "<title>" - --priority <P, default P2> --size <XS|S>` (no `--parent`),
+   then `gh issue edit <n> --add-label quick`. No wave, no dispatch plan.
+4. Return `quick_planned` with `issue`, `size`, `title`.
 
 ## Mode merge (final check, one GitHub account, decision D-1)
 

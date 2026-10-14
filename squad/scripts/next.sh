@@ -20,11 +20,13 @@
 #   dev                 ready tasks of the lowest ready wave (mode implement or rework), limited
 #                       by free developer slots and parallel.max_open_prs
 #   deploy_release      open milestones whose deploy gate passes and that have no draft release
-# "unreleased": Done stories that belong to no milestone (the PM asks the stakeholder for one).
+# "unreleased": Done stories (and Done quick-lane tasks) in no milestone (the PM asks for one).
 # "batch": the actions to dispatch together now (one per independent lane: deploy, qa, PR
 # review/merge, rebase, plan, plus all dev actions), at most parallel.max_agents subagents; a
 # pending stakeholder gate stands alone. "rewave": unstarted tasks whose waves should be
 # recomputed (free slots idle while ready tasks wait in later waves).
+# Each action carries "model" when config models names one for its role (and the item's Size):
+# the PM passes it to the Agent call. QA actions on quick-lane tasks carry "quick": true.
 # An empty "actions" list means nothing is left: report and stop.
 # Config: $SQUAD_CONFIG or .squad/config.yml in the main worktree.
 set -euo pipefail
@@ -48,12 +50,13 @@ Q='query($id:ID!,$endCursor:String){node(id:$id){... on ProjectV2{items(first:10
     labels(first:30){nodes{name}} milestone{title} parent{number}}}
     status: fieldValueByName(name:"Status"){... on ProjectV2ItemFieldSingleSelectValue{name}}
     priority: fieldValueByName(name:"Priority"){... on ProjectV2ItemFieldSingleSelectValue{name}}
+    size: fieldValueByName(name:"Size"){... on ProjectV2ItemFieldSingleSelectValue{name}}
     wave: fieldValueByName(name:"Wave"){... on ProjectV2ItemFieldNumberValue{number}}
     agent: fieldValueByName(name:"Agent"){... on ProjectV2ItemFieldTextValue{text}}}}}}}'
 gh api graphql --paginate -f query="$Q" -F id="$PROJECT_ID" \
   | jq -s --arg repo "$OWNER/$REPO" '[.[].data.node.items.nodes[]
       | select((.isArchived | not) and .content.repository.nameWithOwner == $repo)
-      | .content + {status: .status.name, priority: .priority.name, wave: (.wave.number | if . == null then null else floor end),
+      | .content + {status: .status.name, priority: .priority.name, size: .size.name, wave: (.wave.number | if . == null then null else floor end),
                     agent: .agent.text, labels: [.content.labels.nodes[].name],
                     milestone: .content.milestone.title, parent: .content.parent.number}
       | del(.repository)]' > "$T/items.json"
@@ -82,10 +85,11 @@ done
 jq -s . "$T/reqs.jsonl" > "$T/reqs.json"
 "$SQUAD_SCRIPTS/board.sh" ready-tasks > "$T/ready.json"
 
-python3 - "$T" "$scope" "$(cfg '.parallel.max_parallel_dev')" "$(cfg '.parallel.max_open_prs')" "$(cfg '.parallel.max_agents')" <<'PY'
+python3 - "$T" "$scope" "$(cfg '.parallel.max_parallel_dev')" "$(cfg '.parallel.max_open_prs')" "$(cfg '.parallel.max_agents')" "$(cfg '.models')" <<'PY'
 import json, sys
 T, scope, maxdev, maxpr = sys.argv[1], sys.argv[2], int(sys.argv[3] or 2), int(sys.argv[4] or 4)
 maxagents = int(sys.argv[5] or 3)
+models = json.loads(sys.argv[6] or "{}")
 L = lambda f: json.load(open(f"{T}/{f}.json"))
 items, prs, gates, drafts, runs, reqs, ready = L("items"), L("prs"), L("gates"), L("drafts"), L("runs"), L("reqs"), L("ready")
 prs.sort(key=lambda p: p["number"])   # oldest PR first
@@ -143,7 +147,7 @@ for i in sorted(qa, key=lambda i: (i.get("priority") or "P9", i["number"])):
     if ob:
         notes.append(f"#{i['number']} waits in QA for bugs {ob}")
     else:
-        actions.append({"action": "qa", "issue": i["number"]})
+        actions.append({"action": "qa", "issue": i["number"], "quick": "quick" in i["labels"]})
 
 # stories left open after their last task passed QA (e.g. waiting for a stakeholder answer,
 # labeled blocked until the PM records it): QA checks the story itself
@@ -208,6 +212,17 @@ for g in gates:
     if g["ok"] and g["tag"] not in draft_names and not any(a["action"] in ("gate_3", "deploy_finish") for a in actions):
         actions.append({"action": "deploy_release", "milestone": g["milestone"]})
 
+# model per dispatch from config models: {role: model | {XS|S|M|story: model}}; an unknown
+# size gets the M model (the strongest one configured for that role)
+roles = {"qa": "qa", "lead_merge": "merge", "review": "review", "rebase": "rebase", "plan": "plan",
+         "dev": "dev", "deploy_release": "deploy", "deploy_finish": "deploy"}
+for a in actions:
+    m = models.get(roles.get(a["action"], ""))
+    if isinstance(m, dict):
+        key = "story" if a.get("story") else (by.get(a.get("issue"), {}).get("size") or "M")
+        m = m.get(key) or m.get("M")
+    if m: a["model"] = m
+
 # batch: what can be dispatched together now, one action per independent lane, at most
 # parallel.max_agents subagents. A requirements question stands alone; a pending GATE 3 only
 # holds the deploy lane (it is in actions, never in the batch) while the team keeps working.
@@ -241,8 +256,11 @@ if dev_now and later and len(dev_now) < len(free):
 unreleased = sorted(s["number"] for s in items if typ(s) == "story" and s["status"] == "Done"
                     and any(i.get("parent") == s["number"] and i["status"] == "Done" and not i.get("milestone")
                             for i in items))
+# quick-lane tasks have no story: a Done one without a milestone is unreleased too
+unreleased += sorted(i["number"] for i in items if "quick" in i["labels"] and i["status"] == "Done"
+                     and not i.get("milestone") and in_scope(i["number"]))
 if unreleased:
-    notes.append(f"stories Done without a milestone (not releasable yet): {unreleased}")
+    notes.append(f"stories or quick tasks Done without a milestone (not releasable yet): {unreleased}")
 
 counts = {"in_progress": len(in_progress), "in_review_prs": len(in_review), "free_slots": len(free),
           "ready_in_scope": len(cands)}

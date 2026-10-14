@@ -40,7 +40,8 @@ Releases are grouped by repository **milestones**.
 ## 3. Labels
 
 `type:epic`, `type:story`, `type:task`, `type:bug`, `type:report`, `qa:failed`,
-`review:changes`, `review:passed`, `needs-split`, `needs-rebase`, `needs-human`, `blocked`
+`review:changes`, `review:passed`, `needs-split`, `needs-rebase`, `needs-human`, `blocked`,
+`quick` (quick-lane task from `/squad:fix`: no parent story, no wave; QA checks its DoD only)
 
 ## 4. Issue relationships
 

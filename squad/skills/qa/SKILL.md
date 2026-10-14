@@ -33,6 +33,9 @@ arguments. Template: `references/bug-template.md`. Rules: `references/board-conv
    e2e. Unit tests passing is not enough on its own. For each criterion record: how it was
    checked, the exact command or test, the observed result.
 3. Quick regression: the neighbouring features (same page, endpoint group or module).
+   **Quick-lane task** (`quick` from the PM, label `quick`): check its DoD and `Request` on
+   main with the full suites; start the app only when a DoD item is visible in the UI or API;
+   regression only for the files it changed. It has no story: skip the **Story** step under "Decide".
 4. Stop the app you started: `lsof -ti tcp:<QA port>` gives its PID, then `kill <pid>`
    (only that PID; never `pkill`, which could hit other projects' servers). Check the port is free.
 

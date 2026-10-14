@@ -44,7 +44,7 @@ Runs in the **main session** (PM). No subagent: it needs a few stakeholder decis
      project's Workflows settings page.
    Keep "Auto-add sub-issues to project" and "Auto-close issue".
 
-4. **Labels.** Run `"${CLAUDE_PLUGIN_ROOT}/scripts/issue.sh" labels` (creates or updates all 12).
+4. **Labels.** Run `"${CLAUDE_PLUGIN_ROOT}/scripts/issue.sh" labels` (creates or updates all 13).
 
 5. **Repository settings.** Squash merge only, and delete branches after merge:
    ```bash
@@ -97,8 +97,8 @@ Runs in the **main session** (PM). No subagent: it needs a few stakeholder decis
    `"Bash(gh pr merge:*)"` to `permissions.allow` in `.claude/settings.json`, so the Team Lead
    can merge after the Reviewer's PASS. Branch protection still guards `main`.
 
-10. **Verify and commit.** Run `"${CLAUDE_PLUGIN_ROOT}/scripts/board.sh" list Todo`; it must
-    print a JSON array without errors. Then commit `.squad/config.yml`, `.gitignore`,
+10. **Verify and commit.** Run `"${CLAUDE_PLUGIN_ROOT}/scripts/doctor.sh"`: no `fail` may
+    remain (report each `warn` to the stakeholder; see the `doctor` skill). Then commit `.squad/config.yml`, `.gitignore`,
     `CLAUDE.md`, `.claude/settings.json` and any workflow file on a branch `chore/squad-setup`,
     open a PR and squash-merge it after the stakeholder agrees. Never commit to `main`.
 
@@ -111,9 +111,9 @@ must do by hand.
 
 ## Done when
 
-- `board.sh list Todo` runs without errors.
+- `doctor.sh` reports no `fail`.
 - `.squad/config.yml` has every id under `ids:` (status, priority and size options included).
-- All 12 labels exist; no conflicting built-in workflow remains enabled (or the stakeholder
+- All 13 labels exist; no conflicting built-in workflow remains enabled (or the stakeholder
   explicitly chose to keep it).
 
 ## Never

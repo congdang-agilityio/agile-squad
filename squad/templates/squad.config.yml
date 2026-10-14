@@ -23,6 +23,18 @@ parallel:
   port_base: 4100
   test_db_prefix: app_test
   database_url_template: ""       # e.g. postgresql://postgres:postgres@localhost:5432/{db}
+models:                           # model per dispatch (sonnet | opus | haiku), by task Size;
+                                  # missing = the agent's default. The PM passes it to each Agent call.
+  dev: { XS: sonnet, S: sonnet, M: opus }
+  review: { XS: sonnet, S: opus, M: opus }
+  qa: { XS: sonnet, S: sonnet, M: opus, story: opus }
+  rebase: sonnet
+  merge: sonnet
+  deploy: sonnet
+budget:
+  max_tokens_per_run: 2000000     # /squad:run dispatches nothing new once the subagents of this
+                                  # run reported this many tokens in total (~40 dispatches);
+                                  # empty = no limit. Hard USD cap: claude -p --max-budget-usd
 merge:
   require_ci: true                # Team Lead merges only with green CI checks
 deploy:

@@ -38,7 +38,8 @@ LABELS='[
  {"name":"needs-split","color":"f9d0c4","description":"Too large; must be split into smaller tasks"},
  {"name":"needs-rebase","color":"fef2c0","description":"PR conflicts with main; needs a rebase"},
  {"name":"needs-human","color":"000000","description":"Escalated to the stakeholder"},
- {"name":"blocked","color":"e4e669","description":"Cannot proceed until something else changes"}
+ {"name":"blocked","color":"e4e669","description":"Cannot proceed until something else changes"},
+ {"name":"quick","color":"c2e0c6","description":"Quick lane (/squad:fix): one small task without a story"}
 ]'
 
 cmd_labels() {

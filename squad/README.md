@@ -29,6 +29,10 @@ You (stakeholder) ⇄ PM (main Claude Code session)
   tests it. The production job then waits for your approval in the GitHub Environment
   (GATE 3).
 - **Honest reports.** Every number in a report comes from `metrics.sh`, never from the model.
+- **A quick lane for small changes.** `/squad:fix "<what>"` turns one small request into one
+  task and runs it through dev, review, merge and QA, without the BA and story gates.
+- **Cost control.** Small tasks run on cheaper models (config `models`), and each run stops
+  at a token budget.
 
 ## Requirements
 
@@ -84,24 +88,29 @@ repository, also set `stack`, or let the Team Lead propose one for you to decide
 Claude Code's auto mode blocks `gh pr merge`. Setup offers the allow rule
 `Bash(gh pr merge:*)`, so the Team Lead can merge PRs that passed review.
 
+Setup ends with `/squad:doctor`. Run it again any time something looks wrong (after a fresh
+clone, a lost config, a changed token): it checks everything below and proposes the fixes.
+
 ## Day-to-day workflow
 
 | You want to | Say or run |
 |---|---|
 | Start a feature or product | Describe it, or attach files and links, then `/squad:ba` |
+| Fix or tweak something small | `/squad:fix "<what to change>"` (one XS/S task, no story) |
 | Answer the BA's questions | Answer in chat; the PM relays them and records the answers |
 | Approve requirements / stories | Reply to GATE 1 / GATE 2 in chat |
-| Let the team work | `/squad:run scope=#<epic or stories> [max-steps=N]` |
+| Let the team work | `/squad:run scope=#<epic or stories> [max-steps=N] [max-tokens=N]` |
 | Release finished stories | Give the PM a milestone title when it asks (`v0.3.0 login`) |
 | Approve production | Approve the waiting `production` job on GitHub (GATE 3) |
 | Know where things are | `/squad:report` or ask "how is it going?" |
+| Check the setup | `/squad:doctor` |
 
 `/squad:run` is the PM loop. Each step it reads the board with `next.sh` and dispatches one
 action per lane in one message: deploy, QA, PR review or merge, rebase, planning, plus
 developers up to the free slots. It reads each result and repeats. It stops when:
 - it needs you (a requirements question, GATE 1 or GATE 2);
 - only GATE 3 is left (while GATE 3 is pending, the other lanes keep working);
-- it reaches `max-steps`;
+- it reaches `max-steps` or the token budget;
 - nothing is left to do (it then runs the report).
 
 Run it again to continue; the board is the state, nothing lives in the session.
@@ -130,6 +139,8 @@ The team never approves a gate for you, and it never treats silence as approval.
 | `parallel.max_agents` | subagents dispatched at once by the run loop (memory), default 3 |
 | `parallel.port_base`, `test_db_prefix`, `database_url_template` | per-slot port and test database |
 | `merge.require_ci` | merge only with green CI |
+| `models.<role>` | model per dispatch (`sonnet`, `opus`, `haiku`) for dev, review, qa (by task size `XS`/`S`/`M`, QA also `story`), rebase, merge, deploy |
+| `budget.max_tokens_per_run` | `/squad:run` stops dispatching once its subagents reported this many tokens (approximate; default 2,000,000) |
 | `deploy.*` | workflow names, staging and production URLs, production environment |
 | `limits.*` | attempts before `needs-human`, story size, PR line/file limits per task size, files excluded from the size check |
 
@@ -137,6 +148,8 @@ The `ids` block is written by setup; do not edit it by hand. If it is incomplete
 `board.sh bootstrap --project <n>` again.
 
 ## Troubleshooting
+
+Start with `/squad:doctor`: it detects most of these and prints the fix.
 
 | Symptom | Cause and fix |
 |---|---|
@@ -154,17 +167,18 @@ The `ids` block is written by setup; do not edit it by hand. If it is incomplete
 
 Scripts can be run by hand from the repository root for diagnosis. Each one prints its usage
 with `--help`: `next.sh` (what the PM would do now), `board.sh list <status>`,
-`waves.sh`, `pr-size.sh <pr>`, `release.sh gate "<milestone>"` and `metrics.sh --since <date>`.
+`waves.sh`, `pr-size.sh <pr>`, `release.sh gate "<milestone>"`, `metrics.sh --since <date>`
+and `doctor.sh`.
 
 ## Layout
 
 ```
 squad/
 ├── .claude-plugin/plugin.json
-├── skills/      setup, ba, plan, dev, review, qa, deploy, report, run (procedures)
+├── skills/      setup, doctor, ba, fix, plan, dev, review, qa, deploy, report, run (procedures)
 ├── agents/      ba-analyst, team-lead, developer, reviewer, qa-tester, devops, reporter
 ├── references/  board conventions, result-block contract, templates, review checklist
-├── scripts/     board, issue, worktree, waves, pr, pr-size, release, metrics, next, ingest
+├── scripts/     board, issue, worktree, waves, pr, pr-size, release, metrics, next, ingest, doctor
 └── templates/   squad.config.yml, deploy.yml (GitHub Actions → Railway)
 ```
 
@@ -177,5 +191,9 @@ repository.
   layer.
 - One reviewer and one QA at a time.
 - No automatic production rollback. The P0 bug names the previous tag to redeploy.
+- The token budget counts what subagents report; it is a guard, not a bill. For a hard dollar
+  cap on unattended runs use `claude -p --max-budget-usd <n> "/squad:run …"`.
+- DevOps has no access to the hosting platform: databases, platform settings and logs are
+  set up or fetched by you.
 - One GitHub account for all roles. Reviews are verdict comments (GitHub does not let an
   account approve its own PR), and the Team Lead merges.

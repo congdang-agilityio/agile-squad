@@ -64,3 +64,26 @@ The run loop dispatches one action per lane (deploy, QA, PR review/merge, rebase
 all developer actions in one message, capped by `parallel.max_agents` (default 3, memory).
 When developer slots are idle while ready tasks wait in later waves, the Team Lead recomputes
 waves (mode `rewave`). Serial tasks still stand alone in their wave.
+
+## D-11 (2026-10-14): Quick lane (`/squad:fix`)
+The final review found no path for small changes: a one-line fix went through BA, two gates,
+story planning and story QA. `/squad:fix` sends the stakeholder's words to the Team Lead
+(mode `quick`), which creates one XS/S task labeled `quick` with no parent story and no wave,
+or refuses (`too_big_for_fix`) when the request needs several tasks or a product decision.
+Developer, review, Team Lead merge and QA run unchanged; QA checks the task's DoD and request
+only. No gate before the task: the request is the stakeholder's own. Done quick tasks without
+a milestone are listed as `unreleased`.
+
+## D-12 (2026-10-14): Model per dispatch and a token budget
+Run 8 cost $37.72 for three stories with every subagent on Opus. Config `models` names a model
+per role and task size (default Sonnet for XS/S development, XS review and XS/S QA; Opus for M,
+S review and story QA); `next.sh` puts it on each action and the PM passes it to the Agent
+call. `/squad:run max-tokens=N` (default `budget.max_tokens_per_run`) stops new dispatches once
+the subagents' reported tokens reach N. It is an approximate guard; the hard dollar cap for
+headless runs is `claude -p --max-budget-usd`.
+
+## D-13 (2026-10-14): `/squad:doctor`
+Thirteen troubleshooting rows in the README were symptoms of setup drift (lost ids, missing
+scopes, conflicting project workflows, the merge permission). `doctor.sh` checks them all
+read-only and prints a fix per problem; the `doctor` skill applies fixes after a yes. Setup
+ends with it, and the run loop calls it when `next.sh` fails.
