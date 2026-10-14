@@ -1,13 +1,15 @@
 ---
 name: plan
-description: "Team Lead procedure: split approved stories (Backlog), needs-split tasks and QA bugs into small XS/S technical tasks with Files (expected), dependencies and Definition of Done, group them into parallel waves on the board and post the dispatch plan; recompute waves when developer slots are idle (rewave); put stories the stakeholder wants released into a milestone (milestone); or, in merge mode, do the final check of a PR labeled review:passed and squash-merge it. Use after GATE 2 story approval, when a task is labeled needs-split, when QA files bugs, or when a reviewed PR is waiting to merge."
+description: "Team Lead procedure: split approved stories (Backlog), needs-split tasks and QA bugs into small XS/S technical tasks with Files (expected), dependencies and Definition of Done, group them into parallel waves on the board and post the dispatch plan; recompute waves when developer slots are idle (rewave); put stories the stakeholder wants released into a milestone (milestone); turn one small stakeholder request into a single quick-lane task (quick); or, in merge mode, do the final check of a PR labeled review:passed and squash-merge it. Use after GATE 2 story approval, when a task is labeled needs-split, when QA files bugs, or when a reviewed PR is waiting to merge."
 ---
 
 # squad: plan (Team Lead)
 
 Paths written as `references/…`, `templates/…` or `scripts/…` are inside `${CLAUDE_PLUGIN_ROOT}` (the squad plugin folder), not the target repository.
 
-The PM (main session) dispatches the `team-lead` subagent with one mode:
+The PM (main session) dispatches the `team-lead` subagent with one mode. When invoked
+directly (`/squad:plan`), dispatch the `team-lead` subagent instead of planning here. Issue
+lists may be written `#34,#35` or `34 35`; the scripts accept both.
 - `mode=plan [stories=#34,#35] [tasks=#118] [milestone=<title>] config=.squad/config.yml`
   (`tasks`: `needs-split` tasks or QA bugs to plan. Neither given: every story in `Backlog`,
   every task labeled `needs-split`, every `type:bug` in `Todo` without a Wave)
@@ -19,7 +21,8 @@ The PM (main session) dispatches the `team-lead` subagent with one mode:
   with the new waves, and return `planned`. Change nothing else.
 - `mode=milestone milestone=<title> stories=#36,#63 config=.squad/config.yml`: the stakeholder
   named a release. Run `issue.sh milestone "<title>" <stories>` (creates it if missing and puts
-  each story, its tasks and their bugs in it), comment the list on the epic, and return
+  each story, its tasks and their bugs in it), comment the list on the epic (a quick task
+  has none: comment on the task), and return
   `milestone_set` with `milestone` and `issues`. Change nothing else.
 
 - `mode=quick request=<stakeholder words, verbatim> [priority=P2] config=.squad/config.yml`:
@@ -47,7 +50,9 @@ them with literal arguments, no shell variables. Rules: `references/board-conven
 - Follow board-conventions §6: one thing, one layer, independently mergeable, own DoD, order
   schema → service → API → UI → wiring → e2e. Target XS and S; M only with `Why not smaller`.
 - A brand-new repo starts with one **scaffold** task (project setup, test runner, lint, CI
-  workflow running `commands.lint` and `commands.test`), `Layer: config`, serial. Every other
+  workflow `.github/workflows/<deploy.ci_workflow>` running `commands.lint` and
+  `commands.test` on pushes to `main` and on PRs; the release gate reads that workflow),
+  `Layer: config`, serial. Every other
   task depends on it.
 - Each task body follows `task-template.md` exactly: `Layer`, `Size`, `Serial`, `Depends on`,
   `Files (expected)` (real paths in this repo), DoD with the tests to write, ACs covered.
@@ -65,7 +70,8 @@ them with literal arguments, no shell variables. Rules: `references/board-conven
    with the body on stdin (heredoc). Re-running reuses open issues with the same title.
 2. `needs-split` task: read the developer's split comment, the review, any open PR and any
    merged partial PR. Either re-size it (`board.sh set-field <n> size <S>`, fix the `Size`
-   line, remove `needs-split`, comment why) when the work is one indivisible unit, or create
+   line, remove `needs-split` from the task and its PR (`gh pr edit <pr> --remove-label
+   needs-split`), comment why) when the work is one indivisible unit, or create
    the replacement tasks under the same story, comment `Split into #a, #b` on the original,
    close its open PR, then `gh issue close <n> --reason "not planned"`.
 3. QA bug: keep the issue; if its body lacks `Layer`, `Serial`, `Depends on` or
@@ -108,7 +114,9 @@ them with literal arguments, no shell variables. Rules: `references/board-conven
 3. Decide:
    - all conditions hold and scope is fine → `pr.sh merge <pr>` → `merged`, include
      `rebase_needed`;
-   - only CI pending → `gh pr checks <pr> --watch --interval 30` (at most 10 minutes), check again;
+   - only CI pending → `gh pr checks <pr> --watch --interval 30` (at most 10 minutes), check
+     again; still pending → return `merge_rejected` with `next: review` and the reason (no
+     label change: the next step offers the merge again);
    - conflicts → `pr.sh merge` labels `needs-rebase`; return `needs_rebase`;
    - verdict missing or not on the head commit → `pr.sh reject <pr> review -` (reasons on
      stdin; task stays `In Review`); return `merge_rejected` with `next: review`;

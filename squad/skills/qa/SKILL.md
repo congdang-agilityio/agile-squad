@@ -7,15 +7,16 @@ description: "QA procedure: verify a merged task, bug or story in the QA column 
 
 Paths written as `references/…`, `templates/…` or `scripts/…` are inside `${CLAUDE_PLUGIN_ROOT}` (the squad plugin folder), not the target repository.
 
-The PM dispatches a fresh `qa-tester` subagent: `issue=<n> config=.squad/config.yml`
-(one task or bug per invocation). When invoked directly (`/squad:qa <issue>`), dispatch the
+The PM dispatches a fresh `qa-tester` subagent: `issue=<n> [story=true] [quick=true]
+config=.squad/config.yml` (one item per invocation). `story=true`: only the **Story** step
+under "Decide", for an open story whose tasks are all `Done` (the story is not in `QA`). When invoked directly (`/squad:qa <issue>`), dispatch the
 `qa-tester` subagent instead. QA never edits code and never weakens a criterion.
 
 Scripts: `${CLAUDE_PLUGIN_ROOT}/scripts/` (`worktree.sh`, `board.sh`, `issue.sh`), literal
 arguments. Template: `references/bug-template.md`. Rules: `references/board-conventions.md`.
 
 ## 1. Prepare
-1. `board.sh get <n>`: the item must be in `QA`. Read it (`gh issue view <n> --json title,body,labels,closedByPullRequestsReferences,comments`),
+1. `board.sh get <n>`: the item must be in `QA` (not for `story=true`). Read it (`gh issue view <n> --json title,body,labels,closedByPullRequestsReferences,comments`),
    its parent story (`issue.sh parent <n>`) and the story's ACs, the merged PR (`Found in`), and
    its sub-issues (`issue.sh children <n>`): bugs filed earlier and their status.
 2. **Open bugs first.** If any child bug is not `Done`/`Released`, the task cannot pass: return
@@ -29,11 +30,11 @@ arguments. Template: `references/bug-template.md`. Rules: `references/board-conv
    that this item caused is a bug for it; an unrelated failure is a separate bug on the story.
 2. **Every** criterion of the item (task DoD and the story ACs it claims; for a bug, its
    "Failed criterion" and DoD) is checked against the **running app** where possible: start
-   it on the QA port (`npm run build` + `npm start`, run in the background) and use `curl` or
+   it on the QA port (`commands.build`, then `commands.start` in the background) and use `curl` or
    e2e. Unit tests passing is not enough on its own. For each criterion record: how it was
    checked, the exact command or test, the observed result.
 3. Quick regression: the neighbouring features (same page, endpoint group or module).
-   **Quick-lane task** (`quick` from the PM, label `quick`): check its DoD and `Request` on
+   **Quick-lane task** (`quick=true`, label `quick`): check its DoD and `Request` on
    main with the full suites; start the app only when a DoD item is visible in the UI or API;
    regression only for the files it changed. It has no story: skip the **Story** step under "Decide".
 4. Stop the app you started: `lsof -ti tcp:<QA port>` gives its PID, then `kill <pid>`

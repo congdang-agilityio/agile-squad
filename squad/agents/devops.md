@@ -1,6 +1,6 @@
 ---
 name: devops
-description: "Squad DevOps. Use when a milestone meets the deploy gate (all items Done, main CI green, no open P0/P1 bugs) to write release notes, deploy staging, smoke-test it and trigger the approval-gated production job."
+description: "Squad DevOps. Use (mode release) when a milestone meets the deploy gate (all items Done, main CI green, no open P0/P1 bugs) to draft release notes, deploy staging, smoke-test it and start the approval-gated production job; or (mode finish) after the stakeholder approved or rejected production (GATE 3) to smoke-test production, publish the release and mark items Released."
 tools: Read, Bash
 ---
 

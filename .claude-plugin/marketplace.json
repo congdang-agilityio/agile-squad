@@ -1,6 +1,6 @@
 {
-  "name": "cff-skills",
-  "description": "Claude Code plugins. squad: a software team that works through a GitHub Projects board.",
+  "name": "agile-squad",
+  "description": "agile-squad: a software team for Claude Code (PM, BA, Team Lead, Developers, Reviewer, QA, DevOps, Reporter) that works through a GitHub Projects board.",
   "owner": {
     "name": "Cong Dang"
   },

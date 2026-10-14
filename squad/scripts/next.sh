@@ -4,10 +4,13 @@
 # Usage:
 #   next.sh [--scope <issue>[,<issue>...]]
 #
-# --scope limits work items to those issues and their descendants (epic → story → task/bug).
+# --scope limits work items to those issues and their descendants (epic → story → task/bug);
+# open P0/P1 bugs are always in scope.
 # Output JSON {actions: [...], notes: [...], counts: {...}}: actions in priority order:
 #   notify_needs_human  open items labeled needs-human (tell the stakeholder, then skip them)
 #   ask_stakeholder     requirement folders with open/answered questions and no sign-off
+#   gate_1              requirement folders with every question settled but no sign-off
+#   gate_2              signed folders whose drafted stories are not published as issues yet
 #   gate_3              a deploy run is waiting for production approval
 #   deploy_finish       a release is drafted (or published with its milestone still open) and
 #                       its deploy run has moved past the approval
@@ -15,9 +18,10 @@
 #                       (and open stories whose tasks are all Done: story check, "story": true)
 #   lead_merge          open PRs labeled review:passed
 #   review              open PRs of tasks In Review with no verdict label
-#   rebase              open PRs labeled needs-rebase
+#   rebase              open PRs labeled needs-rebase (with a free developer "slot", else held)
 #   plan                Backlog stories, needs-split tasks, Todo bugs without a Wave (one action)
-#   dev                 ready tasks of the lowest ready wave (mode implement or rework), limited
+#   dev                 ready tasks of the lowest ready wave (mode implement, or rework with
+#                       "pr"), limited
 #                       by free developer slots and parallel.max_open_prs
 #   deploy_release      open milestones whose deploy gate passes and that have no draft release
 # "unreleased": Done stories (and Done quick-lane tasks) in no milestone (the PM asks for one).
@@ -62,16 +66,16 @@ gh api graphql --paginate -f query="$Q" -F id="$PROJECT_ID" \
       | del(.repository)]' > "$T/items.json"
 gh pr list --repo "$OWNER/$REPO" --state open --limit 200 \
   --json number,title,body,labels,headRefName,isDraft,closingIssuesReferences > "$T/prs.json"
-gh api "repos/$OWNER/$REPO/milestones?state=open&per_page=100" > "$T/milestones.json"
+gh api --paginate "repos/$OWNER/$REPO/milestones?state=open&per_page=100" | jq -s 'add // []' > "$T/milestones.json"
 gh api "repos/$OWNER/$REPO/releases?per_page=30" --jq '[.[] | {name, tag_name, id, draft}]' > "$T/drafts.json"
 wf="$(cfg '.deploy.staging_workflow')"; wf="${wf:-deploy.yml}"
 gh run list --repo "$OWNER/$REPO" --workflow "$wf" --event workflow_dispatch --limit 10 \
   --json databaseId,status,conclusion,url,createdAt 2>/dev/null > "$T/runs.json" || echo '[]' > "$T/runs.json"
 : > "$T/gates.jsonl"
-for m in $(jq -r '.[].title | @base64' "$T/milestones.json"); do
-  t="$(base64 -d <<<"$m")"
+while IFS= read -r t; do
+  [[ -n "$t" ]] || continue
   "$SQUAD_SCRIPTS/release.sh" gate "$t" 2>/dev/null | jq -c '{milestone, tag, ok}' >> "$T/gates.jsonl" || true
-done
+done < <(jq -r '.[].title' "$T/milestones.json")
 jq -s . "$T/gates.jsonl" > "$T/gates.json"
 root="$(dirname "$(dirname "$(config_path)")")"
 : > "$T/reqs.jsonl"
@@ -79,8 +83,10 @@ for d in "$root"/docs/requirements/*/; do
   [[ -f "$d/questions.md" ]] || continue
   slug="$(basename "$d")"
   signed=false; grep -q '^Signed-off: ' "$d/requirements.md" 2>/dev/null && signed=true
-  open="$(grep -cE '^\s*-\s*\*\*Status:\*\*\s*(open|answered)\b' "$d/questions.md" || true)"
-  jq -nc --arg s "$slug" --argjson signed "$signed" --argjson open "${open:-0}" '{slug:$s, signed:$signed, open:$open}' >> "$T/reqs.jsonl"
+  open="$(grep -cE '^[[:space:]]*-[[:space:]]*\*\*Status:\*\*[[:space:]]*(open|answered)([^a-z]|$)' "$d/questions.md" || true)"
+  stories=false; compgen -G "$d/stories/S-*.md" >/dev/null && stories=true
+  jq -nc --arg s "$slug" --argjson signed "$signed" --argjson open "${open:-0}" --argjson st "$stories" \
+    '{slug:$s, signed:$signed, open:$open, stories:$st}' >> "$T/reqs.jsonl"
 done
 jq -s . "$T/reqs.jsonl" > "$T/reqs.json"
 "$SQUAD_SCRIPTS/board.sh" ready-tasks > "$T/ready.json"
@@ -100,6 +106,8 @@ roots = {int(x.strip().lstrip("#")) for x in scope.split(",") if x.strip()} if s
 def in_scope(n, depth=0):
     if not roots: return True
     if n in roots: return True
+    i = by.get(n, {})   # urgent bugs (e.g. a failed smoke test) are always in scope
+    if depth == 0 and typ(i) == "bug" and i.get("priority") in ("P0", "P1") and i.get("state") == "OPEN": return True
     p = by.get(n, {}).get("parent")
     return p is not None and depth < 5 and in_scope(p, depth + 1)
 
@@ -124,9 +132,16 @@ labels = lambda p: {l["name"] for l in p["labels"]}
 human = sorted(i["number"] for i in items if "needs-human" in i["labels"] and i["state"] == "OPEN" and in_scope(i["number"]))
 if human: actions.append({"action": "notify_needs_human", "issues": human})
 
+# requirement gates: questions open, GATE 1 (all answered, not signed), GATE 2 (stories
+# drafted, not yet published as issues: no story body names the folder)
+published = lambda slug: any(typ(i) == "story" and f"docs/requirements/{slug}/" in (i.get("body") or "") for i in items)
 for r in reqs:
     if not r["signed"] and r["open"] > 0:
         actions.append({"action": "ask_stakeholder", "slug": r["slug"], "open_questions": r["open"]})
+    elif not r["signed"]:
+        actions.append({"action": "gate_1", "slug": r["slug"]})
+    elif r["stories"] and not published(r["slug"]):
+        actions.append({"action": "gate_2", "slug": r["slug"]})
 
 # a draft release, or a published one whose milestone is still open (finish was interrupted)
 draft_names = {n for d in drafts for n in (d["name"], d["tag_name"])}
@@ -204,7 +219,7 @@ if cands and free and len(in_review) < maxpr:
         p = open_pr_for.get(r["number"])
         mode = "rework" if p and "review:changes" in labels(p) else "implement"
         actions.append({"action": "dev", "issue": r["number"], "slot": int(slot), "mode": mode,
-                        "wave": None if low == 10**6 else low})
+                        "wave": None if low == 10**6 else low, **({"pr": p["number"]} if p else {})})
 elif cands and len(in_review) >= maxpr:
     notes.append(f"{len(in_review)} PRs in review (max_open_prs {maxpr}): no new developers")
 
@@ -226,7 +241,15 @@ for a in actions:
 # batch: what can be dispatched together now, one action per independent lane, at most
 # parallel.max_agents subagents. A requirements question stands alone; a pending GATE 3 only
 # holds the deploy lane (it is in actions, never in the batch) while the team keeps working.
-blocking = {"ask_stakeholder"}
+blocking = {"ask_stakeholder", "gate_1", "gate_2"}
+
+# a rebase needs a developer slot of its own (port, test database): give it one left over
+# after the dev actions, or drop it until a slot is free
+left_slots = [int(s) for s in free if int(s) not in {a["slot"] for a in actions if a["action"] == "dev"}]
+for a in [a for a in actions if a["action"] == "rebase"]:
+    if left_slots: a["slot"] = left_slots.pop(0)
+    else:
+        actions.remove(a); notes.append(f"rebase of PR #{a['pr']} waits for a free developer slot")
 lanes = {"deploy_finish": "deploy", "deploy_release": "deploy", "qa": "qa", "lead_merge": "pr",
          "review": "pr", "rebase": "rebase", "plan": "plan", "dev": "dev"}
 batch, used = [], set()

@@ -4,9 +4,23 @@
 # Usage:
 #   release.sh gate <milestone>      JSON: ok + reasons. Every issue in the milestone is Done or
 #                                    Released (epics and stories may be open), no open P0/P1
-#                                    bug in the repo, latest CI run on main succeeded.
+#                                    bug (nor an open bug missing from the board) in the repo,
+#                                    latest CI run on main succeeded.
 #   release.sh notes <milestone>     Markdown release notes from the merged PRs that closed the
 #                                    milestone's issues, grouped by PR title type.
+#   release.sh draft <milestone> <sha>
+#                                    Create (or update) the draft GitHub Release <tag> on <sha>
+#                                    with the notes above. Prints JSON {tag, url}.
+#   release.sh deploy <sha>          Start the deploy workflow for <sha> with production=true and
+#                                    print the new run {id, url} (waits until GitHub lists it).
+#   release.sh wait <run> <job> [--timeout SEC]
+#                                    Poll every 30 s until job <job> (staging|production) of the
+#                                    run has finished, or is waiting for approval. Prints
+#                                    {run_status, job, job_status, conclusion, jobs}. Exit 4 on
+#                                    timeout (default 1800 s).
+#   release.sh publish <milestone> [--note <one line>]...
+#                                    Publish the draft release (creates the tag on its commit);
+#                                    each --note becomes a bullet under "Known limitations".
 #   release.sh finish <milestone>    After production: move the milestone's Done items to
 #                                    Released and close the milestone. Prints JSON.
 #
@@ -18,8 +32,8 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 BOARD="$SQUAD_SCRIPTS/board.sh"
 
 milestone_json() { # number, title, state of the milestone (by title or number)
-  gh api "repos/$OWNER/$REPO/milestones?state=all&per_page=100" \
-    | jq -c --arg m "$1" '[.[] | select(.title == $m or (.number | tostring) == $m)] | first // empty'
+  gh api --paginate "repos/$OWNER/$REPO/milestones?state=all&per_page=100" \
+    | jq -cs --arg m "$1" '[add // [] | .[] | select(.title == $m or (.number | tostring) == $m)] | first // empty'
 }
 
 ms_issues() { # issues in the milestone with board status (JSON array)
@@ -48,8 +62,15 @@ cmd_gate() {
   bugs="$(gh issue list --repo "$OWNER/$REPO" --label type:bug --state open --limit 500 --json number,title \
           | jq -c '.')"
   local tmp; tmp="$(mktemp)"; "$BOARD" list all > "$tmp"
-  bugs="$(jq --slurpfile b "$tmp" '[.[] | . as $i | ($b[0][] | select(.number == $i.number) | .priority) as $p
-            | select($p == "P0" or $p == "P1") | {number, title, priority: $p}]' <<<"$bugs")"
+  # a bug missing from the (eventually consistent) listing is read directly; one that is not
+  # on the board at all has no priority and blocks the release until someone sets it
+  for n in $(jq -r --slurpfile b "$tmp" '[.[].number] - [$b[0][].number] | .[]' <<<"$bugs"); do
+    jq --argjson i "$("$BOARD" get "$n" 2>/dev/null || echo '{}')" '. + [$i | select(.number != null)]' "$tmp" > "$tmp.x" \
+      && mv "$tmp.x" "$tmp"
+  done
+  bugs="$(jq --slurpfile b "$tmp" '[.[] | . as $i | ([$b[0][] | select(.number == $i.number)] | first) as $it
+            | select($it == null or $it.priority == "P0" or $it.priority == "P1")
+            | {number, title, priority: (if $it == null then "not on the board" else $it.priority end)}]' <<<"$bugs")"
   rm -f "$tmp"
   wf="$(cfg '.deploy.ci_workflow')"; wf="${wf:-ci.yml}"
   ci="$(gh run list --repo "$OWNER/$REPO" --workflow "$wf" --branch main --event push --limit 1 \
@@ -91,8 +112,10 @@ cmd_notes() {
 cmd_finish() {
   local m; m="$(milestone_json "${1:?usage: release.sh finish <milestone>}")"
   [[ -n "$m" ]] || die "milestone '$1' not found"
-  local title num moved='[]' n; title="$(jq -r .title <<<"$m")"; num="$(jq -r .number <<<"$m")"
-  for n in $(ms_issues "$title" | jq -r '.[] | select(.status == "Done") | .number'); do
+  local title num moved='[]' n done_items; title="$(jq -r .title <<<"$m")"; num="$(jq -r .number <<<"$m")"
+  # own line: if the lookup fails the script stops here instead of closing an unreleased milestone
+  done_items="$(ms_issues "$title" | jq -r '.[] | select(.status == "Done") | .number')"
+  for n in $done_items; do
     "$BOARD" move "$n" Released >/dev/null
     moved="$(jq -c --argjson n "$n" '. + [$n]' <<<"$moved")"
   done
@@ -100,10 +123,80 @@ cmd_finish() {
   jq -n --arg t "$title" --argjson moved "$moved" '{milestone:$t, released:$moved, closed:true}'
 }
 
+cmd_draft() {
+  local ms="${1:?usage: release.sh draft <milestone> <sha>}" sha="${2:?usage: release.sh draft <milestone> <sha>}"
+  local m tag notes; m="$(milestone_json "$ms")"; [[ -n "$m" ]] || die "milestone '$ms' not found"
+  tag="$(jq -r '.title | split(" ")[0]' <<<"$m")"
+  notes="$(mktemp)"; cmd_notes "$ms" > "$notes"
+  if gh release view "$tag" --repo "$OWNER/$REPO" >/dev/null 2>&1; then
+    gh release edit "$tag" --repo "$OWNER/$REPO" --target "$sha" --notes-file "$notes" >/dev/null
+  else
+    gh release create "$tag" --repo "$OWNER/$REPO" --draft --target "$sha" --title "$tag" --notes-file "$notes" >/dev/null
+  fi
+  rm -f "$notes"
+  gh release view "$tag" --repo "$OWNER/$REPO" --json tagName,url,isDraft -q '{tag: .tagName, url, draft: .isDraft}'
+}
+
+workflow() { local wf; wf="$(cfg '.deploy.staging_workflow')"; echo "${wf:-deploy.yml}"; }
+
+cmd_deploy() {
+  local sha="${1:?usage: release.sh deploy <sha>}" wf since i run
+  wf="$(workflow)"; since="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  gh workflow run "$wf" --repo "$OWNER/$REPO" -f ref="$sha" -f production=true >/dev/null
+  for i in $(seq 1 20); do   # the new run shows up after a few seconds
+    sleep 5
+    run="$(gh run list --repo "$OWNER/$REPO" --workflow "$wf" --event workflow_dispatch --limit 10 \
+             --json databaseId,url,createdAt \
+           | jq -c --arg s "$since" '[.[] | select(.createdAt >= $s)] | sort_by(.createdAt) | last // empty')"
+    [[ -n "$run" ]] && { jq -c '{id: .databaseId, url}' <<<"$run"; return; }
+  done
+  die "the deploy run did not appear within 100 s (check: gh run list --workflow $wf)"
+}
+
+cmd_wait() {
+  local run="${1:?usage: release.sh wait <run> <job> [--timeout SEC]}" job="${2:?usage: release.sh wait <run> <job>}"
+  local timeout=1800 start j st rs; shift 2
+  [[ "${1:-}" == --timeout ]] && timeout="${2:?}"
+  start=$SECONDS
+  while :; do
+    j="$(gh run view "$run" --repo "$OWNER/$REPO" --json status,jobs)"
+    # a job behind an environment approval does not exist yet while the run is "waiting"
+    st="$(jq -r --arg n "$job" '[.jobs[] | select(.name == $n)][0].status // empty' <<<"$j")"
+    rs="$(jq -r .status <<<"$j")"
+    if [[ "$st" == completed || "$rs" == completed || ( "$rs" == waiting && "$job" == production ) ]]; then
+      jq -c --arg n "$job" '{run_status: .status, job: $n,
+          job_status: ([.jobs[] | select(.name == $n)][0].status // "not started"),
+          conclusion: ([.jobs[] | select(.name == $n)][0].conclusion // null),
+          jobs: [.jobs[] | {name, status, conclusion}]}' <<<"$j"
+      return
+    fi
+    (( SECONDS - start < timeout )) || { EXIT_CODE=4 die "timeout after ${timeout}s waiting for job $job of run $run"; }
+    sleep 30
+  done
+}
+
+cmd_publish() {
+  local ms="${1:?usage: release.sh publish <milestone> [--note <text>]...}"; shift
+  local notes=() m tag body
+  while [[ $# -gt 0 ]]; do
+    case "$1" in --note) notes+=("${2:?--note needs text}"); shift 2 ;; *) die "unknown option $1" ;; esac
+  done
+  m="$(milestone_json "$ms")"; [[ -n "$m" ]] || die "milestone '$ms' not found"
+  tag="$(jq -r '.title | split(" ")[0]' <<<"$m")"
+  body="$(mktemp)"
+  gh release view "$tag" --repo "$OWNER/$REPO" --json body -q .body > "$body" || die "no draft release $tag"
+  if ((${#notes[@]})) && ! grep -q '^### Known limitations' "$body"; then
+    { printf '\n### Known limitations\n'; printf -- '- %s\n' "${notes[@]}"; } >> "$body"
+  fi
+  gh release edit "$tag" --repo "$OWNER/$REPO" --draft=false --latest --notes-file "$body" >/dev/null
+  rm -f "$body"
+  gh release view "$tag" --repo "$OWNER/$REPO" --json tagName,url,isDraft -q '{tag: .tagName, url, draft: .isDraft}'
+}
+
 need gh jq
 cmd="${1:-}"; [[ $# -gt 0 ]] && shift
 case "$cmd" in
   -h|--help|help|"") usage_from "$0"; [[ -n "$cmd" ]] ;;
-  gate|notes|finish) load_project; "cmd_$cmd" "$@" ;;
+  gate|notes|draft|deploy|wait|publish|finish) load_project; "cmd_$cmd" "$@" ;;
   *) die "unknown command '$cmd' (see --help)" ;;
 esac

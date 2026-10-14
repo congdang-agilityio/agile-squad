@@ -12,7 +12,8 @@
 #   pr.sh reject <pr> <review|rework> -
 #                             Final check failed: remove review:passed and comment the reason
 #                             (stdin) on the PR. review: the task stays In Review for a new
-#                             review (stale or missing verdict). rework: task back to Todo.
+#                             review (stale or missing verdict). rework: label review:changes,
+#                             Attempts + 1, task back to Todo (the developer reworks the PR).
 #   pr.sh conflicts           Label every open PR that conflicts with main needs-rebase.
 #
 # Reviewer verdict: the newest review whose body has a line "Verdict: PASS" or
@@ -37,9 +38,16 @@ pr_json() { # mergeability is computed lazily by GitHub: poll while UNKNOWN
   echo "$j"
 }
 
-ci_state() { # pass | fail | pending | none
+ci_state() { # pass | fail | pending | none | error
   local out
-  out="$(gh pr checks "$1" --repo "$OWNER/$REPO" --json bucket 2>/dev/null)" || { echo none; return; }
+  # exit 8 = checks pending; "no checks reported" = none; anything else (auth, network) = error
+  local err rc=0; err="$(mktemp)"
+  out="$(gh pr checks "$1" --repo "$OWNER/$REPO" --json bucket 2>"$err")" || rc=$?
+  if [[ "$rc" != 0 && ( "$rc" != 8 || -z "$out" ) ]]; then
+    if grep -qi "no checks reported" "$err"; then echo none; else echo error; fi
+    rm -f "$err"; return
+  fi
+  rm -f "$err"
   jq -r 'if length == 0 then "none"
          elif any(.[]; .bucket == "fail" or .bucket == "cancel") then "fail"
          elif any(.[]; .bucket == "pending") then "pending" else "pass" end' <<<"$out"
@@ -59,7 +67,7 @@ cmd_check() {
   body=""; [[ -z "$issue" ]] || body="$(gh issue view "$issue" --repo "$OWNER/$REPO" --json body -q .body)"
   local expected excl; excl="$(cfg '.limits.pr_size_exclude')"; excl="${excl:-[]}"
   expected="$(awk '/^##+[ \t]*Files \(expected\)/{f=1;next} f&&/^#+[ \t]/{f=0} f&&/^[ \t]*[-*]/{print}' <<<"$body" \
-    | sed -E 's/^[ \t]*[-*][ \t]*//; s/^[^`]*`([^`]+)`.*/\1/; s/[ \t].*//; s#^\./##' | jq -R -s 'split("\n") | map(select(length > 0))')"
+    | sed -E 's/^[[:blank:]]*[-*][[:blank:]]*//; s/^[^`]*`([^`]+)`.*/\1/; s/[[:blank:]].*//; s#^\./##' | jq -R -s 'split("\n") | map(select(length > 0))')"
   jq --arg ci "$ci" --argjson req "$req" --argjson expected "$expected" --argjson excl "$excl" '
     def glob2re: gsub("\\."; "\\.") | gsub("\\*\\*/"; "\u0001") | gsub("\\*\\*"; "\u0002") | gsub("\\*"; "[^/]*")
                  | gsub("\u0001"; "(.*/)?") | gsub("\u0002"; ".*") | "^" + . + "$";
@@ -82,6 +90,7 @@ cmd_check() {
         (if .verdict != "PASS" then "latest reviewer verdict is not PASS" else empty end),
         (if .verdict == "PASS" and (.verdict_on_head | not) then "PASS verdict is for an older commit, not the head" else empty end),
         (if .ci == "fail" then "CI failed" elif .ci == "pending" then "CI still running"
+         elif .ci == "error" then "CI state could not be read (gh error)"
          elif .ci == "none" and $req then "no CI checks reported (merge.require_ci is true)" else empty end),
         (if .mergeable == "CONFLICTING" then "conflicts with main" elif .mergeable != "MERGEABLE" then "mergeability unknown" else empty end),
         (if .issue == null then "no linked task (Closes #N)" else empty end),
@@ -90,8 +99,11 @@ cmd_check() {
 }
 
 label_conflicts() { # label_conflicts [except-pr] : prints JSON list of PRs labeled needs-rebase
-  local except="${1:-0}" n m out='[]'
-  for n in $(gh pr list --repo "$OWNER/$REPO" --state open --base main --json number -q '.[].number'); do
+  local except="${1:-0}" n m out='[]' open
+  # skip PRs already labeled: no duplicate comments
+  open="$(gh pr list --repo "$OWNER/$REPO" --state open --base main --limit 200 --json number,labels \
+          -q '.[] | select([.labels[].name] | index("needs-rebase") | not) | .number')"
+  for n in $open; do
     [[ "$n" == "$except" ]] && continue
     m="$(pr_json "$n" | jq -r .mergeable)"
     if [[ "$m" == CONFLICTING ]]; then
@@ -120,8 +132,9 @@ cmd_merge() {
   if [[ -d "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/.worktrees/$issue" ]]; then
     "$SQUAD_SCRIPTS/worktree.sh" clean "$issue" --delete-branch --pr-merged >/dev/null || warn "worktree for #$issue kept (uncommitted changes?)"
   fi
-  "$BOARD" move "$issue" QA >/dev/null
-  local rb; rb="$(label_conflicts "$pr")"
+  # the merge is done: bookkeeping failures are warnings, never a silent stop
+  "$BOARD" move "$issue" QA >/dev/null || warn "merged, but #$issue could not be moved to QA: move it by hand"
+  local rb; rb="$(label_conflicts "$pr" 2>/dev/null)" || { warn "merged; conflict check of other PRs failed"; rb='[]'; }
   jq -n --argjson pr "$pr" --argjson i "$issue" --arg s "$sha" --argjson rb "$rb" \
     '{merged:true, pr:$pr, issue:$i, merged_head:$s, rebase_needed:$rb}'
 }
@@ -137,7 +150,11 @@ cmd_reject() {
   gh pr comment "$pr" --repo "$OWNER/$REPO" \
     --body "$(printf 'Team Lead final check: **not merged** (next: %s).\n\n%s' "$next" "$reason")" >/dev/null
   if [[ -n "$issue" ]]; then
-    if [[ "$next" == rework ]]; then "$BOARD" move "$issue" Todo >/dev/null
+    if [[ "$next" == rework ]]; then
+      # same path as a reviewer's CHANGES: the developer reworks and reads this comment
+      gh pr edit "$pr" --repo "$OWNER/$REPO" --add-label review:changes >/dev/null
+      "$BOARD" bump-attempts "$issue" >/dev/null
+      "$BOARD" move "$issue" Todo >/dev/null
     else "$BOARD" move "$issue" "In Review" >/dev/null; fi
   fi
   jq -nc --argjson pr "$pr" --arg i "$issue" --arg nx "$next" \

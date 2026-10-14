@@ -9,7 +9,7 @@ Paths written as `references/…`, `templates/…` or `scripts/…` are inside `
 
 The PM dispatches a fresh `developer` subagent per task:
 `mode=implement|rework|rebase issue=<n> slot=<k> config=.squad/config.yml`
-(rebase also gets `pr=<n>`). One task per invocation. When invoked directly
+(rework and rebase also get `pr=<n>`). One task per invocation. When invoked directly
 (`/squad:dev <issue>`), dispatch the `developer` subagent instead of doing the work here.
 
 Scripts: `${CLAUDE_PLUGIN_ROOT}/scripts/` (`worktree.sh`, `board.sh`, `issue.sh`,
@@ -53,12 +53,17 @@ Scripts: `${CLAUDE_PLUGIN_ROOT}/scripts/` (`worktree.sh`, `board.sh`, `issue.sh`
     outside `Files (expected)` with the reason.
 12. `board.sh move <n> "In Review"`. Return `pr_opened` with `pr`, `slot`, `size`.
 
+**Returning `blocked` after step 2** (any mode): give the slot back so the task is not stuck
+`In Progress`: comment the question on the task, `gh issue edit <n> --add-label blocked`,
+`board.sh set-field <n> agent ""`, `board.sh move <n> Todo`.
+
 ## Mode rework
 After `review:changes` (review comments on the PR). QA bugs are separate `type:bug` issues:
 they are implemented in mode `implement` on their own `fix/<bug>-…` branch and PR.
 1. Claim as in step 2 (`In Progress`, `Agent`, comment "Rework by dev-<k>").
 2. `worktree.sh <n> <k>` reuses the task branch. `git pull --rebase` so it matches the PR.
-3. Read the newest `Verdict: CHANGES` review (`gh pr view <pr> --json reviews,comments`).
+3. Read the newest `Verdict: CHANGES` review, or the newest "Team Lead final check: **not
+   merged**" comment if it is newer (`gh pr view <pr> --json reviews,comments`).
    Fix **every** blocker and should-fix, each with a test that fails before the fix. Nits are
    optional.
 4. Green, commit (`fix: … (#<n>)`), size check, push (no force push).

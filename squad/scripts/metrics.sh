@@ -38,8 +38,9 @@ while [[ $# -gt 0 ]]; do
 done
 need gh jq python3
 load_project
-[[ -n "$since" ]] || since="$(date -u -d '7 days ago' +%F)"
-[[ -n "$until_" ]] || until_="$(date -u -d tomorrow +%F)"
+# python3 instead of GNU date -d (macOS/BSD date has no -d)
+[[ -n "$since" ]] || since="$(python3 -c 'import datetime as d; print((d.datetime.now(d.timezone.utc) - d.timedelta(days=7)).date())')"
+[[ -n "$until_" ]] || until_="$(python3 -c 'import datetime as d; print((d.datetime.now(d.timezone.utc) + d.timedelta(days=1)).date())')"
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 
 # ---- board items with the time of the last Status change
@@ -72,10 +73,6 @@ done | jq -s 'map({(.n | tostring): .started}) | add // {}' > "$T/started.json"
 gh pr list --repo "$OWNER/$REPO" --state merged --limit 300 \
   --json number,title,additions,deletions,changedFiles,mergedAt,createdAt,closingIssuesReferences > "$T/prs_all.json"
 jq --arg s "$since" --arg u "$until_" '[.[] | select(.mergedAt >= $s and .mergedAt < $u)]' "$T/prs_all.json" > "$T/prs.json"
-for p in $(jq -r '.[].number' "$T/prs_all.json"); do
-  gh api "repos/$OWNER/$REPO/issues/$p/events?per_page=100" \
-    --jq "{pr: $p, labels: [.[] | select(.event == \"labeled\") | .label.name] | unique}"
-done | jq -s . > "$T/pr_labels.json"
 
 # ---- size of every merged PR as pr-size.sh counts it (excludes tests, lockfiles, generated)
 if [[ -n "$milestone" ]]; then   # only PRs that close an issue of the milestone
@@ -83,6 +80,11 @@ if [[ -n "$milestone" ]]; then   # only PRs that close an issue of the milestone
   jq --argjson s "$sel" '[.[] | select(any(.closingIssuesReferences[]; .number as $n | $s | index($n)))]' \
     "$T/prs_all.json" > "$T/prs_sized.json"
 else cp "$T/prs.json" "$T/prs_sized.json"; fi
+# label history only for the PRs this report counts (one API call each)
+for p in $(jq -rs 'add | map(.number) | unique | .[]' "$T/prs.json" "$T/prs_sized.json"); do
+  gh api "repos/$OWNER/$REPO/issues/$p/events?per_page=100" \
+    --jq "{pr: $p, labels: [.[] | select(.event == \"labeled\") | .label.name] | unique}"
+done | jq -s . > "$T/pr_labels.json"
 for p in $(jq -r '.[].number' "$T/prs_sized.json"); do
   "$SQUAD_SCRIPTS/pr-size.sh" "$p" --size M 2>/dev/null | jq -c --argjson p "$p" '{pr: $p, lines, files}' || true
 done | jq -s 'map({(.pr | tostring): {lines, files}}) | add // {}' > "$T/sizes.json"

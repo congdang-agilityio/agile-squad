@@ -39,7 +39,7 @@ You (stakeholder) ⇄ PM (main Claude Code session)
 - Claude Code with plugin support.
 - `gh` (GitHub CLI) logged in, with the `project` and `workflow` scopes:
   `gh auth refresh -h github.com -s project,workflow`.
-- `git`, `jq`, `python3`, `bash`, `awk`.
+- `git`, `jq`, `python3`, `awk` and **bash 4+** (macOS ships bash 3.2: `brew install bash`).
 - Optional, for requirement files: `pdftotext` (poppler) and `pandoc` or `markitdown`
   (`ingest.sh` has a built-in fallback for .docx/.pptx/.xlsx).
 - The target project's own toolchain (for example Node and Docker for a local test database).
@@ -51,14 +51,14 @@ You (stakeholder) ⇄ PM (main Claude Code session)
 **From a marketplace** (this repository ships `.claude-plugin/marketplace.json` at its root):
 
 ```
-/plugin marketplace add <owner>/<this-repo>
-/plugin install squad@cff-skills
+/plugin marketplace add congdang-agilityio/agile-squad
+/plugin install squad@agile-squad
 ```
 
 **From a folder** (for trying it out or developing it):
 
 ```bash
-claude --plugin-dir /path/to/cff-skills/squad
+claude --plugin-dir /path/to/agile-squad/squad
 ```
 
 You can also copy the `squad/` folder into a plugin directory you already load. Skills appear
@@ -82,7 +82,7 @@ Setup does the following:
 - adds the deploy workflow and creates the `staging` and `production` GitHub Environments,
   with you as the required reviewer of production.
 
-Fill in the `commands` section (install, test, lint, e2e, services) in the config. In an empty
+Fill in the `commands` section (install, test, lint, e2e, build, start, services) in the config. In an empty
 repository, also set `stack`, or let the Team Lead propose one for you to decide.
 
 Claude Code's auto mode blocks `gh pr merge`. Setup offers the allow rule
@@ -133,7 +133,7 @@ The team never approves a gate for you, and it never treats silence as approval.
 
 | Key | Meaning |
 |---|---|
-| `commands.*` | install, test, lint, e2e and an idempotent `services` command (e.g. start a test Postgres) |
+| `commands.*` | install, test, lint, e2e, build and start (QA runs the app on `$PORT`), and an idempotent `services` command (e.g. start a test Postgres) |
 | `parallel.max_parallel_dev` | developer slots (worktrees), default 2 |
 | `parallel.max_open_prs` | no new developers while this many PRs wait for review |
 | `parallel.max_agents` | subagents dispatched at once by the run loop (memory), default 3 |
@@ -167,8 +167,8 @@ Start with `/squad:doctor`: it detects most of these and prints the fix.
 
 Scripts can be run by hand from the repository root for diagnosis. Each one prints its usage
 with `--help`: `next.sh` (what the PM would do now), `board.sh list <status>`,
-`waves.sh`, `pr-size.sh <pr>`, `release.sh gate "<milestone>"`, `metrics.sh --since <date>`
-and `doctor.sh`.
+`waves.sh`, `pr-size.sh <pr>`, `release.sh gate "<milestone>"` (also `draft`, `deploy`,
+`wait`, `publish`, `finish`), `metrics.sh --since <date>` and `doctor.sh`.
 
 ## Layout
 

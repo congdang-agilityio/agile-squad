@@ -2,6 +2,10 @@
 # Shared helpers for squad scripts. Source it; do not execute it.
 # Requires: bash 4+, gh, jq, awk, git.
 
+if ((BASH_VERSINFO[0] < 4)); then
+  echo "error: squad scripts need bash 4 or newer (macOS: brew install bash)" >&2; exit 1
+fi
+
 # errexit must also apply inside $(...) so a failing helper stops the script
 shopt -s inherit_errexit 2>/dev/null || true
 
@@ -170,7 +174,8 @@ load_config() {
 }
 
 # cfg <jq-path> : print a config value ("" if missing)
-cfg() { jq -r "($1) // empty | if type == \"object\" or type == \"array\" then tojson else . end" <<<"$CFG_JSON"; }
+# (false is printed as "false"; only null/missing print nothing)
+cfg() { jq -r "($1) as \$v | if \$v == null then empty elif (\$v | type) == \"object\" or (\$v | type) == \"array\" then (\$v | tojson) else \$v end" <<<"$CFG_JSON"; }
 
 # cfg_req <jq-path> : like cfg but fails when missing
 cfg_req() {
@@ -199,10 +204,15 @@ gql() {
   echo "$out"
 }
 
+issue_args() { # issue_args "#12,#13" 14 ... : one issue number per line (accepts #, commas, spaces)
+  local a
+  for a in "$@"; do tr ', ' '\n\n' <<<"$a"; done | sed 's/^#//' | grep -E '^[0-9]+$' || true
+}
+
 issue_node_id() { # issue_node_id <number>
   gql 'query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){issue(number:$n){id}}}' \
     -F o="$OWNER" -F r="$REPO" -F n="$1" | jq -r '.data.repository.issue.id // empty'
 }
 
 # Print usage from the header comment block of the calling script.
-usage_from() { sed -n '/^# Usage:/,/^[^#]/{/^[^#]/d;s/^# \{0,1\}//;p}' "$1"; }
+usage_from() { sed -n '/^# Usage:/,/^[^#]/{/^[^#]/d;s/^# \{0,1\}//;p;}' "$1"; }

@@ -30,13 +30,18 @@ if [[ "$target" =~ ^[0-9]+$ ]]; then
   files="$(gh api --paginate "repos/$OWNER/$REPO/pulls/$target/files?per_page=100" \
            --jq '.[] | {path: .filename, lines: (.additions + .deletions)}' | jq -s .)" \
     || die "PR #$target not found"
-  issue="$(gh pr view "$target" --repo "$OWNER/$REPO" --json closingIssuesReferences \
-           -q '.closingIssuesReferences[0].number // empty')"
+  # GitHub links "Closes #N" with a delay: fall back to the body, then the branch name
+  issue="$(gh pr view "$target" --repo "$OWNER/$REPO" --json closingIssuesReferences,body,headRefName \
+           -q '.closingIssuesReferences[0].number
+               // ((.body // "") | capture("\\b(closes|fixes|resolves)\\s+#(?<n>[0-9]+)"; "i").n)
+               // (.headRefName | capture("^(feat|fix)/(?<n>[0-9]+)-").n) // empty')"
 else
   git fetch --quiet origin main 2>/dev/null || true
   git rev-parse --verify --quiet "$target" >/dev/null || die "branch '$target' not found"
-  files="$(git diff --numstat "origin/main...$target" \
-           | awk -F'\t' '{a=($1=="-")?0:$1; d=($2=="-")?0:$2; printf "{\"path\":\"%s\",\"lines\":%d}\n", $3, a+d}' | jq -s .)"
+  # raw paths (no quoting of non-ASCII names, no rename arrows); JSON built by jq
+  files="$(git -c core.quotePath=false diff --numstat --no-renames "origin/main...$target" \
+           | jq -R -s 'split("\n") | map(select(length > 0) | split("\t")
+               | {path: .[2:] | join("\t"), lines: ((.[0] | tonumber? // 0) + (.[1] | tonumber? // 0))})')"
   [[ "$target" =~ ^(feat|fix)/([0-9]+)- ]] && issue="${BASH_REMATCH[2]}"
 fi
 

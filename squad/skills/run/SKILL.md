@@ -29,21 +29,23 @@ small tasks, from config `models`); without it, use the agent's default.
    capped by `parallel.max_agents`, and a pending requirements question stands alone. Do not wait
    for one lane before starting another: QA can test one item while developers build the next
    wave. If `rewave` is not empty, add `squad:team-lead` with `mode=rewave tasks=<rewave>` to
-   the batch (it recomputes waves for unstarted tasks so idle slots get work).
+   the batch (it recomputes waves for unstarted tasks so idle slots get work); at most once
+   per run, since file overlaps can keep tasks in later waves.
    If `next.sh` fails, run the `doctor` skill instead and stop.
 2. Act on each action:
    | Action | What the PM does |
    |---|---|
    | `notify_needs_human` | Tell the stakeholder which items are stuck and why (read their last comment). Once per run; then continue with the next action. |
    | `ask_stakeholder` | Requirements are being clarified: run the `ba` skill, Phase B. Stop the loop until answers arrive. |
+   | `gate_1` / `gate_2` | Requirement sign-off or story approval is pending for `slug`: run the `ba` skill at GATE 1 / GATE 2. Stop the loop until the stakeholder answers. |
    | `gate_3` | A production deploy waits for approval (never in the batch): once per run, give the stakeholder the run URL and the staging smoke results and ask them to approve or reject on GitHub. Keep dispatching the batch; the deploy lane waits. |
    | `deploy_finish` | `squad:devops` with `mode=finish run=<run_id> milestone=<title>`. |
-   | `qa` | `squad:qa-tester` with `issue=<n>` (plus `story check` when `story` is true, `quick` when `quick` is true). |
+   | `qa` | `squad:qa-tester` with `issue=<n>` (plus `story=true` / `quick=true` when the action has them). |
    | `lead_merge` | `squad:team-lead` with `mode=merge pr=<n>`. |
    | `review` | `squad:reviewer` with `pr=<n>`. |
-   | `rebase` | `squad:developer` with `mode=rebase issue=<task> pr=<n> slot=<free slot>`. |
+   | `rebase` | `squad:developer` with `mode=rebase issue=<task> pr=<n> slot=<slot>` (the action's slot). |
    | `plan` | `squad:team-lead` with `mode=plan stories=<…> tasks=<…>`. |
-   | `dev` (batch) | One `squad:developer` per action **in parallel** (several Agent calls in one message): `mode=<mode> issue=<n> slot=<slot>`. |
+   | `dev` (batch) | One `squad:developer` per action **in parallel** (several Agent calls in one message): `mode=<mode> issue=<n> slot=<slot>` (plus `pr=<n>` for rework). |
    | `deploy_release` | `squad:devops` with `mode=release milestone=<title>`. |
    | *(no actions)* | Run the `report` skill, then stop. |
 3. Read each result block. Follow its `next` only through the next `next.sh` call; the board
@@ -52,17 +54,18 @@ small tasks, from config `models`); without it, use the agent's default.
      with the issue link and the agent's question; continue with other work. When they answer,
      record it on the issue and remove `blocked` so the item is picked up again.
    - `story_too_big`: ask the BA (`ba` skill, mode `revise`) for the suggested split and
-     present it at GATE 2.
+     present it at GATE 2. After approval and publishing, close the original story
+     (`gh issue close <n> --reason "not planned"`, comment the new story numbers).
    - `staging_ok_awaiting_approval`: GATE 3, as above; continue with the other lanes.
    - A result that contradicts the board (e.g. "merged" but the PR is open): re-run
      `next.sh` and dispatch again once; if it repeats, tell the stakeholder.
-4. **Budget.** Each finished subagent reports its usage (`subagent_tokens`). Add them up for
-   this run. Once the total reaches `max-tokens`, dispatch nothing new: let running agents
+4. **Budget.** Each Agent result carries usage metadata from Claude Code
+   (`subagent_tokens`), not from the agent's own text. Add them up for this run. Once the total reaches `max-tokens`, dispatch nothing new: let running agents
    finish, then stop and tell the stakeholder the total and what is left.
 5. Log one line per dispatch: `step k: <action> [model] → <status> (<issue/pr>, <tokens>)`.
 
 ## Stop when
-- a stakeholder question or GATE 1/2 is pending (`ask_stakeholder`), or GATE 3 is pending and
+- a stakeholder question or GATE 1/2 is pending (`ask_stakeholder`, `gate_1`, `gate_2`), or GATE 3 is pending and
   the batch is empty,
 - `max-steps` steps are done, or the token budget is used up,
 - `next.sh` returns no actions (after the report),

@@ -87,3 +87,22 @@ Thirteen troubleshooting rows in the README were symptoms of setup drift (lost i
 scopes, conflicting project workflows, the merge permission). `doctor.sh` checks them all
 read-only and prints a fix per problem; the `doctor` skill applies fixes after a yes. Setup
 ends with it, and the run loop calls it when `next.sh` fails.
+
+## D-14 (2026-10-14): Final review fixes before publishing
+Two independent read-only reviews (cross-file consistency; script bugs) found 52 issues. The
+ones that changed behavior:
+- A developer that returns `blocked` after claiming a task gives the slot back (label
+  `blocked`, Agent cleared, task to `Todo`); before, the slot stayed busy forever.
+- A failed smoke test deletes the draft release, so the fixed milestone can be released
+  again; the P0 bug carries the milestone, and open P0/P1 bugs are always in a run's scope.
+- `next.sh` reports GATE 1 and GATE 2 (`gate_1`, `gate_2`), gives a rebase its own developer
+  slot, and passes the PR number for rework.
+- A Team Lead merge rejection for rework labels `review:changes` and counts an attempt, like a
+  review; the developer reads that comment.
+- DevOps uses `release.sh draft | deploy | wait | publish` instead of pipes, sleep loops and
+  multi-line arguments that permission rules refuse; known limitations become `--note` lines.
+- `cfg` returns `false` (so `merge.require_ci: false` works); CI lookup errors block a merge.
+- Portability: bash 4+ is required and checked; BSD `sed`/`date` forms replaced.
+- QA starts the app with new `commands.build` / `commands.start` instead of npm.
+Not fixed (documented limits): fixed listing caps (projects 100, open PRs 200, issues 500)
+and a rewave that file overlaps cannot improve (the PM rewaves at most once per run).

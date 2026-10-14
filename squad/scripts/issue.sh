@@ -14,6 +14,7 @@
 #   issue.sh parent <issue>            Parent issue number, or empty if none
 #   issue.sh labels                    Create or update every squad label (idempotent)
 #   issue.sh milestone <title> <story>...
+#                                      Stories as "#36,#63" or "36 63" (a quick task works too).
 #                                      Create the milestone if missing (idempotent) and put each
 #                                      story, its tasks and their bugs in it. Prints JSON.
 #   issue.sh publish <slug>            After GATE 2: create the epic from
@@ -87,18 +88,20 @@ cmd_milestone() {
   local title="${1:?usage: issue.sh milestone <title> <story>...}"; shift
   [[ $# -gt 0 ]] || die "usage: issue.sh milestone <title> <story>..."
   local num
-  num="$(gh api "repos/$OWNER/$REPO/milestones?state=all&per_page=100" \
-           --jq "[.[] | select(.title == \"$title\")][0].number // empty")"
+  num="$(gh api --paginate "repos/$OWNER/$REPO/milestones?state=all&per_page=100" \
+         | jq -s --arg t "$title" 'add // [] | map(select(.title == $t))[0].number // empty')"
   if [[ -z "$num" ]]; then
     gh api "repos/$OWNER/$REPO/milestones" -f title="$title" >/dev/null
     info "created milestone '$title'"
   fi
-  local all=() s n m
-  for s in "$@"; do
-    s="${s#\#}"; all+=("$s")
-    for n in $(cmd_children "$s" | jq -r '.[].number'); do
+  local all=() s n m kids bugs
+  for s in $(issue_args "$@"); do
+    all+=("$s")
+    kids="$(cmd_children "$s" | jq -r '.[].number')"   # own line: a failure stops the script
+    for n in $kids; do
       all+=("$n")
-      for m in $(cmd_children "$n" | jq -r '.[] | select(.labels | index("type:bug")) | .number'); do all+=("$m"); done
+      bugs="$(cmd_children "$n" | jq -r '.[] | select(.labels | index("type:bug")) | .number')"
+      for m in $bugs; do all+=("$m"); done
     done
   done
   for n in "${all[@]}"; do gh issue edit "$n" --repo "$OWNER/$REPO" --milestone "$title" >/dev/null; done
@@ -167,14 +170,14 @@ cmd_publish() {
   local tmp; tmp="$(mktemp -d)"
   local etitle; etitle="$(sed -n 's/^# *\(Epic: *\)\{0,1\}//p' "$dir/epic.md" | head -n1)"
   [[ -n "$etitle" ]] || die "epic.md must start with '# <epic title>'"
-  sed '1{/^# /d}' "$dir/epic.md" > "$tmp/epic.md"
+  sed '1{/^# /d;}' "$dir/epic.md" > "$tmp/epic.md"
   local epic; epic="$(cmd_create epic "$etitle" "$tmp/epic.md" --priority P1 | jq .issue)"
   local f id title prio out='[]' n
   for f in "${files[@]}"; do
     id="$(basename "$f" | grep -oE '^S-[0-9]+')"
     title="$(sed -n '1s/^# *S-[0-9]*: *//p' "$f")"
     [[ -n "$title" ]] || die "$f must start with '# S-nn: <title>'"
-    prio="$(grep -oE '\*\*Priority:\*\* *P[0-3]' "$f" | grep -oE 'P[0-3]' | head -n1)"
+    prio="$({ grep -oE '\*\*Priority:\*\* *P[0-3]' "$f" || true; } | grep -oE 'P[0-3]' | head -n1 || true)"
     { sed '1d' "$f"; printf '\n---\nStory %s · Requirements: `docs/requirements/%s/`\n' "$id" "$slug"; } > "$tmp/body.md"
     n="$(cmd_create story "$title" "$tmp/body.md" --parent "$epic" ${prio:+--priority "$prio"} --status Backlog | jq .issue)"
     out="$(jq -c --arg id "$id" --argjson n "$n" --arg t "$title" '. + [{id:$id, issue:$n, title:$t}]' <<<"$out")"

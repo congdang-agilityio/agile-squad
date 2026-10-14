@@ -66,7 +66,7 @@ if ((${#miss[@]})); then
 else add ids ok "all board ids present"; fi
 
 cmds=()
-for k in install test lint; do [[ -n "$(cfg ".commands.$k")" ]] || cmds+=("$k"); done
+for k in install test lint build start; do [[ -n "$(cfg ".commands.$k")" ]] || cmds+=("$k"); done
 if ((${#cmds[@]})); then add commands warn "empty: ${cmds[*]}" "fill commands.* in the config"
 else add commands ok "install, test, lint set$([[ -n "$(cfg .commands.e2e)" ]] && echo ", e2e set")"; fi
 
@@ -120,8 +120,9 @@ if [[ -n "$PROJECT_ID" ]]; then
     if [[ "$(jq -r .data.node.closed <<<"$fields")" == true ]]; then add board fail "the project is closed" "reopen it on GitHub"
     elif [[ -n "$lack" ]]; then add board fail "missing on the board: $lack" "board.sh bootstrap --project $(cfg .project_number)"
     else add board ok "$(jq -r .data.node.title <<<"$fields"): fields and Status columns present"; fi
-    conf="$("$SQUAD_SCRIPTS/board.sh" workflows 2>/dev/null | jq -r '[.[] | select(.conflicts and .enabled) | .name] | join(", ")' || true)"
-    if [[ -n "$conf" ]]; then add project_workflows fail "enabled workflows that set Status behind squad: $conf" "board.sh workflows --fix (deletes them), or disable them in the project settings"
+    if ! wfs="$("$SQUAD_SCRIPTS/board.sh" workflows 2>/dev/null)"; then
+      add project_workflows warn "cannot list the project's built-in workflows" "board.sh workflows (check the project scope)"
+    elif conf="$(jq -r '[.[] | select(.conflicts and .enabled) | .name] | join(", ")' <<<"$wfs")" && [[ -n "$conf" ]]; then add project_workflows fail "enabled workflows that set Status behind squad: $conf" "board.sh workflows --fix (deletes them), or disable them in the project settings"
     else add project_workflows ok "no conflicting built-in workflow"; fi
   fi
 fi

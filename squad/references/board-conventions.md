@@ -12,9 +12,9 @@ quoted below are defaults; always read the real values from `limits` and `parall
 | Status | Meaning | Moved there by |
 |---|---|---|
 | `Backlog` | Approved story, not yet split into tasks | PM (after GATE 2) |
-| `Todo` | Task ready to be picked up; a planned story waits here until its tasks are done | Team Lead; QA (bugs); Reviewer (rework) |
+| `Todo` | Task ready to be picked up; a planned story waits here until its tasks are done | Team Lead (also a merge rejected for rework); QA (bugs); Reviewer (rework); Dev (needs-split, or blocked after claiming) |
 | `In Progress` | A developer is working on it | Dev |
-| `In Review` | PR open, awaiting review | Dev |
+| `In Review` | PR open, awaiting review | Dev; Team Lead (merge rejected for a new review) |
 | `QA` | Merged, awaiting testing | Team Lead (after final check and merge) |
 | `Done` | QA passed, ready to deploy | QA |
 | `Released` | Live in production | DevOps |
@@ -122,7 +122,7 @@ expressed as a review comment plus a label, never `gh pr review --approve`:
 - Developers rebase on the latest `main` before opening a PR. When a merge makes another open
   PR conflict, the Team Lead labels it `needs-rebase`; the PM dispatches a developer in
   `rebase` mode.
-- If more than `parallel.max_open_prs` PRs wait in `In Review`, the PM dispatches no new
+- While `parallel.max_open_prs` or more PRs wait in `In Review`, the PM dispatches no new
   developers until the queue drains.
 
 ## 8. Bounded loops

@@ -106,6 +106,7 @@ for n, i in info.items():
         if o.get("status") in ("Done", "Released"):
             continue
         if o.get("wave") is not None and int(o["wave"]) < start:
+            floor = max(floor, start + 1)   # in flight: not before the next wave
             continue
         if o.get("wave") is not None:
             floor = max(floor, int(o["wave"]) + 1)
@@ -171,14 +172,14 @@ print(json.dumps({
 '
 
 cmd_plan() {
-  local from="" start="" write=0 cap="" nums=()
+  local from="" start="" write=0 cap="" nums=() x
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --from-json) from="${2:?}"; shift 2 ;;
       --start) start="${2:?}"; shift 2 ;;
       --max-parallel) cap="${2:?}"; shift 2 ;;
       --write) write=1; shift ;;
-      [0-9]*) nums+=("$1"); shift ;;
+      [0-9#]*) while read -r x; do nums+=("$x"); done < <(issue_args "$1"); shift ;;
       *) die "unknown argument $1" ;;
     esac
   done

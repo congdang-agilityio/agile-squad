@@ -110,7 +110,8 @@ cmd_create() {
       meta="$(gh issue view "$n" --repo "$OWNER/$REPO" --json title,labels)" || die "issue #$n not found"
       title="$(jq -r .title <<<"$meta")"
       kind=feat; jq -e '.labels | map(.name) | index("type:bug")' >/dev/null <<<"$meta" && kind=fix
-      branch="$kind/$n-$(slugify "$title")"; branch="${branch%-}"
+      local slug; slug="$(slugify "$title")"   # non-Latin titles transliterate to nothing
+      branch="$kind/$n-${slug:-task}"
       git -C "$root" worktree add --quiet --no-track -b "$branch" "$dir" origin/main
       created=true
     fi

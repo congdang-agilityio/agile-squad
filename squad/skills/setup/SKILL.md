@@ -71,7 +71,8 @@ Runs in the **main session** (PM). No subagent: it needs a few stakeholder decis
 6. **Git hygiene.** Ensure `.gitignore` contains `.worktrees/` and `.squad/reports/` (append if missing).
 
 7. **Commands.** Detect the stack (e.g. `package.json` scripts, `pyproject.toml`, `Makefile`) and
-   propose values for `commands.install`, `test`, `lint` and `e2e` in `.squad/config.yml`. Show
+   propose values for `commands.install`, `test`, `lint`, `e2e`, `build` and `start` (QA runs
+   the app with them on `$PORT`) in `.squad/config.yml`. Show
    them to the stakeholder and write them after confirmation. Leave `e2e` empty if there is none.
 
 8. **Deploy workflow.** If `.github/workflows/` has no deploy workflow, copy

@@ -13,6 +13,8 @@ commands:
   install: npm ci
   test: npm test
   lint: npm run lint
+  build: npm run build            # QA builds and starts the app to check criteria in it
+  start: npm start                # must listen on $PORT (from .env.local)
   e2e: ""                         # e.g. npx playwright test; leave empty if none
   services: ""                    # idempotent command that starts local services tests need,
                                   # e.g. docker start app-pg || docker run -d --name app-pg ...

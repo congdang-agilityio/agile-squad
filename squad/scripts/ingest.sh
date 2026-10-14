@@ -28,7 +28,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 fail() { local code="$1"; shift; echo "ingest: $*" >&2; exit "$code"; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
-[[ "${1:-}" == "-h" || "${1:-}" == "--help" ]] && { sed -n '/^# Usage:/,/^[^#]/{/^[^#]/d;s/^# \{0,1\}//;p}' "$0"; exit 0; }
+[[ "${1:-}" == "-h" || "${1:-}" == "--help" ]] && { sed -n '/^# Usage:/,/^[^#]/{/^[^#]/d;s/^# \{0,1\}//;p;}' "$0"; exit 0; }
 [[ $# -ge 2 ]] || fail 2 "usage: ingest.sh <file|url> <slug> [--name NAME] (see --help)"
 SRC="$1" SLUG="$2"; shift 2
 NAME=""
