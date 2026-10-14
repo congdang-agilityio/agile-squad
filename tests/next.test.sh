@@ -84,4 +84,25 @@ printf '  escalate_on_retry: false\n' > "$T/esc"; sed -i.bak '/^  escalate_on_re
 sed -i.bak "/^  qa: {/r $T/esc" .squad/config.yml
 out="$("$S/next.sh")"
 eq "escalation can be turned off" "$(act dev 'select(.issue == 42) | .model')" '["sonnet"]'
+# two machines on one board: slots are per machine, held items are not offered twice
+NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+cat > "$T/items4.json" <<JSON
+[
+ {"number": 50, "type": "story", "status": "Todo"},
+ {"number": 51, "type": "task", "status": "In Progress", "parent": 50, "size": "S", "agent": "dev-1@laptop-b $NOW"},
+ {"number": 52, "type": "task", "status": "Todo", "parent": 50, "size": "XS", "wave": 1, "body": "- **Depends on:** none"},
+ {"number": 53, "type": "task", "status": "QA", "parent": 50, "size": "S", "agent": "qa@laptop-b $NOW"},
+ {"number": 54, "type": "task", "status": "In Review", "parent": 50, "size": "S", "agent": "review@laptop-b 2020-01-01T00:00:00Z"}
+]
+JSON
+echo '[{"number": 104, "title": "x (#54)", "body": "Closes #54", "labels": [], "headRefName": "feat/54-x", "isDraft": false, "closingIssuesReferences": []}]' > "$T/prs.json"
+python3 "$FIX/board.py" "$T/items4.json" next > "$T/next.json"; python3 "$FIX/board.py" "$T/items4.json" board > "$T/board.json"
+out="$(SQUAD_HOST=laptop-a "$S/next.sh")"
+eq "another machine's dev-1 does not use this machine's slot 1" "$(act dev '[.issue, .slot, .agent]')" '[[52,1,"dev-1@laptop-a"]]'
+eq "QA held by another machine is not offered again" "$(act qa .issue)" '[]'
+check "...and the note says who has it" 'jq -e ".notes | map(test(\"#53: qa skipped, qa@laptop-b\")) | any" <<<"$out" >/dev/null'
+eq "a stale claim does not block the review" "$(act review .issue)" '[54]'
+check "...and is reported as stale" 'jq -e ".notes | map(test(\"#54: claim by review@laptop-b is older\")) | any" <<<"$out" >/dev/null'
+out="$(SQUAD_HOST=laptop-b "$S/next.sh")"
+eq "on the machine that holds dev-1, the next task gets slot 2" "$(act dev '[.issue, .slot]')" '[[52,2]]'
 cd / && rm -rf "$(dirname "$R")" "$T"

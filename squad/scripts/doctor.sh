@@ -40,6 +40,7 @@ missing=()
 for t in gh jq git python3 awk; do command -v "$t" >/dev/null 2>&1 || missing+=("$t"); done
 if ((${#missing[@]})); then add tools fail "missing: ${missing[*]}" "install ${missing[*]}"; finish; exit; fi
 add tools ok "gh, jq, git, python3, awk"
+add machine ok "this machine claims work as dev-<k>@$(machine_id) (set SQUAD_HOST to change)"
 
 git rev-parse --git-dir >/dev/null 2>&1 || { add repo fail "not inside a git repository" "cd into a clone of the target repository"; finish; exit; }
 path="$(config_path)"; root="$(dirname "$(dirname "$path")")"
@@ -110,7 +111,7 @@ if ((${#scopes[@]})); then add gh_auth fail "account $acct lacks scopes: ${scope
 else add gh_auth ok "account $acct with project, workflow, repo scopes"; fi
 
 if [[ -n "$PROJECT_ID" ]]; then
-  fields="$(gh api graphql -f query='query($id:ID!){node(id:$id){... on ProjectV2{title closed
+  fields="$(gh api graphql -f query='query($id:ID!){node(id:$id){... on ProjectV2{title closed viewerCanUpdate
              fields(first:50){nodes{... on ProjectV2FieldCommon{name}
              ... on ProjectV2SingleSelectField{options{name}}}}}}}' -F id="$PROJECT_ID" 2>/dev/null || true)"
   if ! jq -e '.data.node.title' >/dev/null 2>&1 <<<"$fields"; then
@@ -121,6 +122,8 @@ if [[ -n "$PROJECT_ID" ]]; then
     lack="$(jq -r --argjson h "$have" --argjson s "$statuses" --arg want "$(IFS=,; echo "${STATUSES[*]}")" \
       '(["Status","Priority","Size","Wave","Agent","Attempts"] - $h) + (($want | split(",")) - $s | map("Status:" + .)) | join(", ")' <<<'null')"
     if [[ "$(jq -r .data.node.closed <<<"$fields")" == true ]]; then add board fail "the project is closed" "reopen it on GitHub"
+    elif [[ "$(jq -r .data.node.viewerCanUpdate <<<"$fields")" == false ]]; then
+      add board fail "account $acct cannot change the board" "ask the board owner to add $acct with write access (project Settings → Manage access)"
     elif [[ -n "$lack" ]]; then add board fail "missing on the board: $lack" "board.sh bootstrap --project $(cfg .project_number)"
     else add board ok "$(jq -r .data.node.title <<<"$fields"): fields and Status columns present"; fi
     if ! wfs="$("$SQUAD_SCRIPTS/board.sh" workflows 2>/dev/null)"; then
@@ -138,6 +141,9 @@ if [[ -n "$OWNER" && -n "$REPO" ]]; then
   else add labels ok "all squad labels exist"; fi
 
   rs="$(gh api "repos/$OWNER/$REPO" 2>/dev/null || echo '{}')"
+  if [[ "$(jq -r '.permissions.push // false' <<<"$rs")" != true ]]; then
+    add repo_access fail "account $acct cannot push to $OWNER/$REPO" "ask a repository admin to add $acct as a collaborator with write access"
+  else add repo_access ok "$acct can push to $OWNER/$REPO"; fi
   if [[ "$(jq -r '.allow_squash_merge' <<<"$rs")" == true && "$(jq -r '.delete_branch_on_merge' <<<"$rs")" == true ]]; then
     add merge_settings ok "squash merge on, branches deleted after merge"
   else add merge_settings warn "squash merge or delete-branch-on-merge is off" "setup step 5 (gh repo edit …)"; fi

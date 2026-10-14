@@ -147,3 +147,13 @@ planned before). A task sent back by review or QA runs one tier higher next time
 cheap model is tried first and the expensive one is paid for only where it failed. The
 savings are not measured yet: compare the PM's end-of-run token totals per role (or
 `claude -p` total_cost_usd) for similar work before and after, on a real project.
+
+## D-18 (2026-10-15): Claims across machines through issue comments
+Slots were board-wide names (`dev-1`), so a second developer's machine could take the same
+task and treat it as its own resumed run. GitHub has no atomic compare-and-set on project
+fields, but issue comments are totally ordered: a worker posts a claim comment and the
+earliest claim of the last 10 minutes wins; the loser deletes its comment and backs off. The
+Agent field then records `who@machine time`, which `next.sh` reads to keep slots per machine
+and to skip items another machine is working on. Claims expire (`claim_ttl_minutes`) so a
+crashed machine never blocks an item for good; stale claims are reported, not silently taken.
+The "Started by" prefix is kept so cycle-time metrics still work.

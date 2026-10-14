@@ -169,6 +169,45 @@ Với repository trống, hãy điền thêm `stack`, hoặc để Team Lead đ�
 Chế độ auto của Claude Code chặn `gh pr merge`. Setup sẽ đề nghị thêm allow rule
 `Bash(gh pr merge:*)` để Team Lead merge được các PR đã qua review.
 
+## Tham gia một dự án đã dùng squad
+
+Khi một người đã setup repository bằng squad, developer mới **không** chạy setup lại. File
+cấu hình (kèm id của board), `CLAUDE.md`, `.claude/settings.json` và workflow GATE 3 đã được
+commit, và toàn bộ trạng thái công việc nằm trên board.
+
+1. **Xin quyền** từ người đã setup: quyền ghi vào repository GitHub, quyền ghi vào GitHub
+   Project (Settings → Manage access của project; board thuộc tài khoản cá nhân phải mời
+   riêng), và chỉ khi bạn sẽ phát hành hoặc đổi hạ tầng: quyền thành viên Railway project.
+2. **Cài đặt** plugin và các công cụ, rồi đăng nhập:
+   ```
+   /plugin marketplace add congdang-agilityio/agile-squad
+   /plugin install squad@agile-squad
+   ! gh auth refresh -h github.com -s project,workflow
+   ! railway login            # chỉ khi bạn sẽ phát hành hoặc đổi hạ tầng
+   ```
+   Cùng với `git`, `jq`, `python3`, bash 4 trở lên và bộ công cụ riêng của dự án.
+3. **Clone và kiểm tra:** chạy `/squad:doctor` (không chạy `/squad:setup`). Lệnh này kiểm tra
+   tài khoản của bạn có quyền push vào repository và sửa board không, cùng mọi phần setup
+   khác trên máy này.
+4. **Nắm tình hình rồi bắt đầu:** `/squad:report` (hoặc hỏi "đang thế nào rồi?"), sau đó
+   `/squad:run scope=#<epic của bạn>`, `/squad:fix "…"` hoặc `/squad:ba`.
+
+### Nhiều developer trên một board
+
+- Mỗi máy làm việc dưới tên riêng: slot developer là `dev-1@<tên máy>`, `dev-2@<tên máy>`,
+  nên `parallel.max_parallel_dev` tính theo từng máy (mỗi máy có port và database test riêng).
+  Đặt `SQUAD_HOST` để chọn tên máy.
+- Trước khi developer, QA hay reviewer bắt đầu một mục, nó **claim** mục đó: một comment
+  "Started by … · claim" trên issue, và claim sớm nhất thắng. Nếu hai máy cùng nhận một mục
+  trong cùng một lúc, máy đến sau tự lùi (`claimed_elsewhere`), và `next.sh` không đề xuất
+  mục mà máy khác đang làm.
+- Claim cũ hơn `parallel.claim_ttl_minutes` (mặc định 120 phút: máy bị sập) được báo là quá
+  hạn; xoá bằng `board.sh release <issue> --force`.
+- Thống nhất một stakeholder duyệt các gate, và một người (có Railway login) lo phát hành và
+  hạ tầng. Câu trả lời ở các gate được ghi trên issue và trong `docs/requirements/`, nên phiên
+  PM ở máy nào cũng chạy tiếp được.
+- Chia việc theo epic (mỗi người `/squad:run scope=#<epic>`) giúp dễ theo dõi.
+
 ## Làm việc hằng ngày
 
 | Bạn muốn | Nói hoặc chạy |
@@ -213,7 +252,8 @@ trong phiên chính.
 | Khoá | Ý nghĩa |
 |---|---|
 | `commands.*` | install, test, lint, e2e, build và start (QA chạy ứng dụng trên `$PORT`), cùng lệnh `services` chạy lặp lại an toàn (ví dụ khởi động Postgres để test) |
-| `parallel.max_parallel_dev` | số slot developer (worktree), mặc định 2 |
+| `parallel.max_parallel_dev` | số slot developer (worktree) trên mỗi máy, mặc định 2 |
+| `parallel.claim_ttl_minutes` | claim cũ hơn mức này (máy bị sập) được báo là quá hạn, mặc định 120 |
 | `parallel.max_open_prs` | không giao thêm developer khi có từng này PR đang chờ review |
 | `parallel.max_agents` | số subagent tối đa được giao cùng lúc (giới hạn bộ nhớ), mặc định 3 |
 | `parallel.port_base`, `test_db_prefix`, `database_url_template` | port và database test cho từng slot |

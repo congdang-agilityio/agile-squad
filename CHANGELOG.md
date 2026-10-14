@@ -3,6 +3,26 @@
 All notable changes to agile-squad. Versions follow [Semantic Versioning](https://semver.org);
 the plugin version lives in `squad/.claude-plugin/plugin.json` and the marketplace entry.
 
+## [0.6.0] - 2026-10-15
+
+### Added
+- **Several machines on one board.** `board.sh claim <issue> <who>`: before a developer, QA
+  or review run starts on an item it posts a "Started by <who>@<machine> · claim" comment;
+  of the claims of the last 10 minutes the earliest wins, the loser deletes its comment and
+  returns `claimed_elsewhere`. The Agent field holds `<who>@<machine> <time>`;
+  `board.sh release` clears it. `next.sh` does not offer QA, review, rebase or merge for an
+  item another worker holds, and reports claims older than `parallel.claim_ttl_minutes`
+  (default 120) as stale.
+- Machine names (`SQUAD_HOST`, default the short hostname); developer slots are per machine
+  (`dev-1@laptop-a`), so `max_parallel_dev` counts per machine.
+- Doctor checks that the account can push to the repository and change the board, and shows
+  the machine name.
+- README (EN, VI) and the field guide: "Joining an existing squad project".
+
+### Fixed
+- Two machines running `/squad:run` on the same scope could both take the same task (a
+  developer saw the other machine's identical slot name as its own resumed run).
+
 ## [0.5.0] - 2026-10-15
 
 ### Added
@@ -102,6 +122,7 @@ the plugin version lives in `squad/.claude-plugin/plugin.json` and the marketpla
   reporter subagents on a GitHub Projects board; three human gates; parallel developers in
   worktrees; GitHub Actions deploys to Railway with production approval.
 
+[0.6.0]: https://github.com/congdang-agilityio/agile-squad/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/congdang-agilityio/agile-squad/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/congdang-agilityio/agile-squad/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/congdang-agilityio/agile-squad/compare/v0.3.0...v0.3.1

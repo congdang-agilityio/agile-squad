@@ -9,3 +9,4 @@ Common fields and rules: `references/agent-output.md`.
 | `needs_split` | PR too large or multi-purpose | `plan` | `pr`, `issue` |
 | `needs_rebase` | PR conflicts with `main` | `rebase` | `pr`, `issue` |
 | `needs_human` | Attempts exceeded `max_attempts` | `escalate` | `pr`, `issue`, `attempts` |
+| `claimed_elsewhere` | Another worker (possibly on another machine) claimed this item first; nothing changed | `none` | `issue`, `by` |

@@ -8,3 +8,4 @@ Common fields and rules: `references/agent-output.md`.
 | `bug_created` | Bug(s) filed as sub-issues in `Todo`, item labeled `qa:failed`, stays in `QA` | `plan` | `issue`, `bugs` (list), `attempts` |
 | `needs_human` | Attempts exceeded `max_attempts`; labeled `needs-human` | `escalate` | `issue`, `attempts`, `bugs` |
 | `blocked` | Cannot test (environment, missing information) | `ask_stakeholder` | `issue` |
+| `claimed_elsewhere` | Another worker (possibly on another machine) claimed this item first; nothing changed | `none` | `issue`, `by` |

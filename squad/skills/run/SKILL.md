@@ -44,9 +44,9 @@ use the agent's default.
    | `qa` | `squad:qa-tester` with `issue=<n>` (plus `story=true` / `quick=true` when the action has them). |
    | `lead_merge` | `squad:team-lead` with `mode=merge pr=<n>`. |
    | `review` | `squad:reviewer` with `pr=<n>`. |
-   | `rebase` | `squad:developer` with `mode=rebase issue=<task> pr=<n> slot=<slot>` (the action's slot). |
+   | `rebase` | `squad:developer` with `mode=rebase issue=<task> pr=<n> slot=<slot> agent=<agent>` (the action's slot and agent). |
    | `plan` | `squad:team-lead` with `mode=plan stories=<…> tasks=<…>`. |
-   | `dev` (batch) | One `squad:developer` per action **in parallel** (several Agent calls in one message): `mode=<mode> issue=<n> slot=<slot>` (plus `pr=<n>` for rework). |
+   | `dev` (batch) | One `squad:developer` per action **in parallel** (several Agent calls in one message): `mode=<mode> issue=<n> slot=<slot> agent=<agent>` (plus `pr=<n>` for rework). |
    | `deploy_release` | `squad:devops` with `mode=release milestone=<title>`. |
    | `infra` | `squad:devops` with `mode=infra issue=<n>` (platform change with the Railway CLI). |
    | *(no actions)* | Run the `report` skill, then stop. |
@@ -68,6 +68,8 @@ use the agent's default.
      the stakeholder which bugs were filed, their priority and the environment; the bugs are
      planned like any other. After a release, offer to watch production:
      `/loop 6h /squad:deploy health` runs `mode=health` periodically.
+   - `claimed_elsewhere`: another machine took the item first; just continue (the next
+     `next.sh` no longer offers it).
    - `blocked` from DevOps with a command for the stakeholder (`! railway login`, or
      `! railway variable set KEY --stdin …` for a secret): give them the command verbatim.
    - A result that contradicts the board (e.g. "merged" but the PR is open): re-run

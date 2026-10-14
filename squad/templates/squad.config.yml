@@ -19,7 +19,8 @@ commands:
   services: ""                    # idempotent command that starts local services tests need,
                                   # e.g. docker start app-pg || docker run -d --name app-pg ...
 parallel:
-  max_parallel_dev: 2
+  max_parallel_dev: 2             # developer slots per machine (each has its own ports and DBs)
+  claim_ttl_minutes: 120          # a claim older than this (crashed machine) is reported as stale
   max_open_prs: 4
   max_agents: 3                   # subagents dispatched at once by the run loop (memory)
   port_base: 4100

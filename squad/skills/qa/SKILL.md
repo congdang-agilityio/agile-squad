@@ -16,7 +16,9 @@ Scripts: `${CLAUDE_PLUGIN_ROOT}/scripts/` (`worktree.sh`, `board.sh`, `issue.sh`
 arguments. Template: `references/bug-template.md`. Rules: `references/conventions/core.md`.
 
 ## 1. Prepare
-1. `board.sh get <n>`: the item must be in `QA` (not for `story=true`). Read it (`gh issue view <n> --json title,body,labels,closedByPullRequestsReferences,comments`),
+1. `board.sh claim <n> qa`: exit 3 → another machine is testing it: return
+   `claimed_elsewhere`. Always `board.sh release <n>` before you return. `board.sh get <n>`:
+   the item must be in `QA` (not for `story=true`). Read it (`gh issue view <n> --json title,body,labels,closedByPullRequestsReferences,comments`),
    its parent story (`issue.sh parent <n>`) and the story's ACs, the merged PR (`Found in`), and
    its sub-issues (`issue.sh children <n>`): bugs filed earlier and their status.
 2. **Open bugs first.** If any child bug is not `Done`/`Released`, the task cannot pass: return

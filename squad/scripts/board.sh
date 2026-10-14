@@ -14,6 +14,10 @@
 #                                                  Done/Released (excludes blocked, needs-human,
 #                                                  needs-split), sorted by priority, wave, number
 #   board.sh bump-attempts <issue>                 Attempts += 1, prints the new value
+#   board.sh claim <issue> <who>                   Take the item for <who> (dev-1, qa, review) on
+#                                                  this machine; safe across machines (claim
+#                                                  comment, earliest wins). Exit 3 = taken
+#   board.sh release <issue> [--force]             Clear this machine's claim (Agent field)
 #   board.sh workflows [--fix]                     List built-in project workflows that fight squad
 #                                                  status ownership; --fix deletes them (permanent;
 #                                                  GitHub's API has no "disable")
@@ -190,6 +194,49 @@ cmd_ready_tasks() {
     | map(select([.depends_on[] | ($st[tostring] // "") | select(. != "Done" and . != "Released")] | length == 0)
           | del(.body))
     | sort_by((.priority // "P9"), (.wave // 999999), .number)' <<<"$cand"
+}
+
+# claim <issue> <who>: take the item for one worker on this machine, safely across machines.
+# 1. a fresh claim by someone else in the Agent field → refused (exit 3)
+# 2. post "Started by <who>@<machine> · claim <nonce>" on the issue
+# 3. of the claim comments of the last 10 minutes, the earliest (GitHub's order) wins:
+#    the winner writes "<who>@<machine> <UTC time>" into Agent; a loser deletes its comment
+#    and exits 3. Two machines claiming at the same moment can never both win.
+cmd_claim() {
+  local n="${1:?usage: board.sh claim <issue> <who>}" who="${2:?usage: board.sh claim <issue> <who>}"
+  local me it agent nonce since comments win mine
+  me="$who@$(machine_id)"
+  it="$(one_item "$n")"; [[ -n "$it" ]] || die "#$n is not on the board"
+  agent="$(jq -r '.agent // empty' <<<"$it")"
+  if claim_fresh "$agent" && [[ "${agent%% *}" != "$me" ]]; then
+    EXIT_CODE=3 die "#$n is claimed by ${agent%% *} (since ${agent#* })"
+  fi
+  nonce="$(od -An -N4 -tx1 /dev/urandom | tr -d ' \n')"
+  since="$(python3 -c 'import datetime as d; print((d.datetime.now(d.timezone.utc) - d.timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ"))')"
+  gh issue comment "$n" --repo "$OWNER/$REPO" --body "Started by $me · claim $nonce" >/dev/null || die "cannot comment on #$n"
+  comments="$(gh api "repos/$OWNER/$REPO/issues/$n/comments?since=$since&per_page=100" \
+              --jq '[.[] | select(.body | test("· claim [0-9a-f]{8}$")) | {id, created_at, body}]')"
+  win="$(jq -r 'sort_by(.created_at, .id) | first | .body // empty' <<<"$comments")"
+  if [[ "$win" == *"claim $nonce" ]]; then
+    edit_item "$n" "$(cfg_req .ids.agent_field_id)" --text "$me $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    jq -nc --argjson n "$n" --arg a "$me" '{issue:$n, claimed:true, agent:$a}'
+  else
+    mine="$(jq -r --arg x "claim $nonce" '.[] | select(.body | endswith($x)) | .id' <<<"$comments")"
+    [[ -z "$mine" ]] || gh api -X DELETE "repos/$OWNER/$REPO/issues/comments/$mine" >/dev/null 2>&1 || true
+    EXIT_CODE=3 die "#$n was claimed first by ${win#Started by } (this machine backs off)"
+  fi
+}
+
+# release <issue> [--force]: clear the Agent claim; only this machine's own claim unless --force
+cmd_release() {
+  local n="${1:?usage: board.sh release <issue> [--force]}" it agent
+  it="$(one_item "$n")"; [[ -n "$it" ]] || die "#$n is not on the board"
+  agent="$(jq -r '.agent // empty' <<<"$it")"
+  if [[ -n "$agent" && "${2:-}" != --force && "$agent" == *@* && "${agent%% *}" != *"@$(machine_id)" ]]; then
+    EXIT_CODE=3 die "#$n is claimed by ${agent%% *}, not by this machine (use --force to clear it)"
+  fi
+  [[ -z "$agent" ]] || edit_item "$n" "$(cfg_req .ids.agent_field_id)" --clear
+  jq -nc --argjson n "$n" '{issue:$n, released:true}'
 }
 
 cmd_bump_attempts() {
@@ -389,12 +436,12 @@ cmd="${1:-}"; [[ $# -gt 0 ]] && shift
 case "$cmd" in
   -h|--help|help|"") usage_from "$0"; [[ -n "$cmd" ]] ;;
   bootstrap) cmd_bootstrap "$@" ;;
-  list|get|move|set-field|ready-tasks|bump-attempts|workflows)
+  list|get|move|set-field|ready-tasks|bump-attempts|workflows|claim|release)
     load_project
     case "$cmd" in
       list) cmd_list "$@" ;; get) cmd_get "$@" ;; move) cmd_move "$@" ;;
       set-field) cmd_set_field "$@" ;; ready-tasks) cmd_ready_tasks ;; bump-attempts) cmd_bump_attempts "$@" ;;
-      workflows) cmd_workflows "$@" ;;
+      workflows) cmd_workflows "$@" ;; claim) cmd_claim "$@" ;; release) cmd_release "$@" ;;
     esac ;;
   *) die "unknown command '$cmd' (see --help)" ;;
 esac

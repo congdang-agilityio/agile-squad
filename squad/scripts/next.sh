@@ -20,8 +20,11 @@
 #   review              open PRs of tasks In Review with no verdict label
 #   rebase              open PRs labeled needs-rebase (with a free developer "slot", else held)
 #   plan                Backlog stories, needs-split tasks, Todo bugs without a Wave (one action)
+#   (qa, review, rebase and merge are skipped for items another worker holds a fresh claim on,
+#   from any machine; see board.sh claim)
 #   dev                 ready tasks of the lowest ready wave (mode implement, or rework with
-#                       "pr"), limited
+#                       "pr"), with "agent" dev-<slot>@<this machine>; slots are per machine,
+#                       limited
 #                       by free developer slots and parallel.max_open_prs
 #   infra               a ready task labeled infra: DevOps changes the platform with railway.sh
 #   deploy_release      open milestones whose deploy gate passes and that have no draft release
@@ -97,11 +100,26 @@ jq -s . "$T/reqs.jsonl" > "$T/reqs.json"
 "$SQUAD_SCRIPTS/board.sh" ready-tasks > "$T/ready.json"
 
 echo "${platform:-railway}" > "$T/platform"
+machine_id > "$T/machine"; ttl="$(cfg .parallel.claim_ttl_minutes)"; echo "${ttl:-120}" > "$T/ttl"
 python3 - "$T" "$scope" "$(cfg '.parallel.max_parallel_dev')" "$(cfg '.parallel.max_open_prs')" "$(cfg '.parallel.max_agents')" "$(cfg '.models')" <<'PY'
 import json, sys
 T, scope, maxdev, maxpr = sys.argv[1], sys.argv[2], int(sys.argv[3] or 2), int(sys.argv[4] or 4)
 maxagents = int(sys.argv[5] or 3)
 models = json.loads(sys.argv[6] or "{}")
+HOST = open(f"{T}/machine").read().strip()
+TTL = int(open(f"{T}/ttl").read().strip() or 120)
+import datetime as _d
+def claim(i):
+    """(who, fresh) from the Agent field "who@machine <UTC time>"; legacy "dev-1" → (dev-1, None)"""
+    a = (i or {}).get("agent") or ""
+    if "@" in a and " " in a:
+        who, ts = a.split(" ", 1)
+        try:
+            t = _d.datetime.strptime(ts.strip(), "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=_d.timezone.utc)
+            return who, _d.datetime.now(_d.timezone.utc) - t < _d.timedelta(minutes=TTL)
+        except ValueError:
+            return who, False
+    return (a or None), None
 L = lambda f: json.load(open(f"{T}/{f}.json"))
 items, prs, gates, drafts, runs, reqs, ready = L("items"), L("prs"), L("gates"), L("drafts"), L("runs"), L("reqs"), L("ready")
 prs.sort(key=lambda p: p["number"])   # oldest PR first
@@ -212,7 +230,18 @@ if stories and not roots:
 
 in_progress = [i for i in items if i["status"] == "In Progress" and typ(i) in ("task", "bug")]
 in_review = [p for p in prs if pr_task(p) and by.get(pr_task(p), {}).get("status") == "In Review"]
-busy = {i.get("agent") for i in in_progress if i.get("agent")}
+# developer slots are per machine: dev-<k>@<this machine> claims (fresh) and legacy "dev-<k>"
+# values on In Progress tasks are busy; other machines' slots are theirs
+busy = set()
+for i in items:
+    who, fresh = claim(i)
+    if who and who.startswith("dev-") and fresh and who.endswith("@" + HOST):
+        busy.add(who.split("@")[0])
+    elif who and who.startswith("dev-") and fresh is None and i["status"] == "In Progress":
+        busy.add(who)
+    elif who and fresh is False and i["status"] in ("In Progress", "In Review", "QA") and i["state"] == "OPEN":
+        notes.append(f"#{i['number']}: claim by {who} is older than {TTL} min (machine gone?); "
+                     f"clear it with board.sh release {i['number']} --force")
 free = [f"{k}" for k in range(1, maxdev + 1) if f"dev-{k}" not in busy]
 planning = {t for a in actions if a["action"] == "plan" for t in a["tasks"]}
 # infra tasks (label infra) are done by DevOps with the Railway CLI, not by a developer
@@ -227,6 +256,7 @@ if cands and free and len(in_review) < maxpr:
         p = open_pr_for.get(r["number"])
         mode = "rework" if p and "review:changes" in labels(p) else "implement"
         actions.append({"action": "dev", "issue": r["number"], "slot": int(slot), "mode": mode,
+                        "agent": f"dev-{slot}@{HOST}",
                         "wave": None if low == 10**6 else low, **({"pr": p["number"]} if p else {})})
 elif cands and len(in_review) >= maxpr:
     notes.append(f"{len(in_review)} PRs in review (max_open_prs {maxpr}): no new developers")
@@ -237,6 +267,20 @@ for r in infra[:1]:   # one infrastructure change at a time
 for g in gates:
     if g["ok"] and g["tag"] not in draft_names and not any(a["action"] in ("gate_3", "deploy_finish") for a in actions):
         actions.append({"action": "deploy_release", "milestone": g["milestone"]})
+
+# items a worker holds right now (fresh claim, on any machine) are not offered again:
+# another machine's QA, review or rebase is already on them
+def held(n):
+    who, fresh = claim(by.get(n))
+    return who if fresh else None
+kept = []
+for a in actions:
+    n = a.get("issue")
+    if a["action"] in ("qa", "review", "rebase", "lead_merge") and n and held(n):
+        notes.append(f"#{n}: {a['action']} skipped, {held(n)} is working on it")
+        continue
+    kept.append(a)
+actions = kept
 
 # model per dispatch from config models: {role: model | {low|medium|high|XS|S|M|story: model}}.
 # The task's Complexity (body line, set by the Team Lead) decides; a task without one uses its
@@ -279,7 +323,7 @@ blocking = {"ask_stakeholder", "gate_1", "gate_2"}
 # after the dev actions, or drop it until a slot is free
 left_slots = [int(s) for s in free if int(s) not in {a["slot"] for a in actions if a["action"] == "dev"}]
 for a in [a for a in actions if a["action"] == "rebase"]:
-    if left_slots: a["slot"] = left_slots.pop(0)
+    if left_slots: a["slot"] = left_slots.pop(0); a["agent"] = f"dev-{a['slot']}@{HOST}"
     else:
         actions.remove(a); notes.append(f"rebase of PR #{a['pr']} waits for a free developer slot")
 lanes = {"deploy_finish": "deploy", "deploy_release": "deploy", "qa": "qa", "lead_merge": "pr",

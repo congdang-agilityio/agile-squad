@@ -17,6 +17,8 @@ Checklist: `references/review-checklist.md`. Verdict format: `references/convent
 "Review and merge".
 
 ## Steps
+0. **Claim** the linked task: `board.sh claim <task> review`; exit 3 → another machine is
+   reviewing it: return `claimed_elsewhere`. Always `board.sh release <task>` before you return.
 1. **Load.** `gh pr view <pr> --json number,title,body,headRefOid,headRefName,labels,mergeable,closingIssuesReferences,reviews,comments`.
    The linked task (`Closes #<n>`), its parent story (`gh issue view`) and their ACs/DoD.
    Earlier review rounds: what was asked and whether it was fixed.

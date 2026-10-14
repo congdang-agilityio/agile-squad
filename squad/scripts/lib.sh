@@ -205,6 +205,29 @@ gql() {
   echo "$out"
 }
 
+# machine_id: this machine's name in claims (dev-1@<machine>): $SQUAD_HOST, else the short
+# hostname, lowercased to [a-z0-9-], at most 24 characters
+machine_id() {
+  local h="${SQUAD_HOST:-$(hostname -s 2>/dev/null || hostname 2>/dev/null || echo host)}"
+  h="$(printf '%s' "$h" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9-' '-' | cut -c1-24)"
+  echo "${h:-host}"
+}
+
+# claim_fresh <agent field> : true when it is a claim ("who@machine <UTC time>") younger
+# than parallel.claim_ttl_minutes (default 120); older claims are stale (a crashed machine)
+claim_fresh() {
+  local ts="${1#* }" ttl; [[ "$1" == *@*" "* && -n "$ts" ]] || return 1
+  ttl="$(cfg .parallel.claim_ttl_minutes)"; ttl="${ttl:-120}"
+  python3 - "$ts" "$ttl" <<'PY'
+import sys, datetime as d
+try:
+    t = d.datetime.strptime(sys.argv[1], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=d.timezone.utc)
+except ValueError:
+    sys.exit(1)
+sys.exit(0 if d.datetime.now(d.timezone.utc) - t < d.timedelta(minutes=int(sys.argv[2])) else 1)
+PY
+}
+
 issue_args() { # issue_args "#12,#13" 14 ... : one issue number per line (accepts #, commas, spaces)
   local a
   for a in "$@"; do tr ', ' '\n\n' <<<"$a"; done | sed 's/^#//' | grep -E '^[0-9]+$' || true

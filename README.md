@@ -166,6 +166,46 @@ config. In an empty repository, also set `stack`, or let the Team Lead propose o
 Claude Code's auto mode blocks `gh pr merge`. Setup offers the allow rule
 `Bash(gh pr merge:*)`, so the Team Lead can merge PRs that passed review.
 
+## Joining an existing squad project
+
+When someone has already set the repository up with squad, a new developer does **not** run
+setup again. The config (with the board ids), `CLAUDE.md`, `.claude/settings.json` and the
+GATE 3 workflow are committed, and all work state is on the board.
+
+1. **Get access** from the person who set it up: write access to the GitHub repository, write
+   access to the GitHub Project (project Settings → Manage access; a user-owned board needs
+   its own invitation), and, only if you will release or change infrastructure, membership
+   in the Railway project.
+2. **Install** the plugin and the tools, and sign in:
+   ```
+   /plugin marketplace add congdang-agilityio/agile-squad
+   /plugin install squad@agile-squad
+   ! gh auth refresh -h github.com -s project,workflow
+   ! railway login            # only if you will release or change infrastructure
+   ```
+   Plus `git`, `jq`, `python3`, bash 4+ and the project's own toolchain.
+3. **Clone and check:** run `/squad:doctor` (not `/squad:setup`). It checks that your account
+   can push to the repository and change the board, and every other part of the setup on
+   this machine.
+4. **Catch up and start:** `/squad:report` (or ask "how is it going?"), then
+   `/squad:run scope=#<your epic>`, `/squad:fix "…"` or `/squad:ba`.
+
+### Several developers on one board
+
+- Each machine works under its own name: developer slots are `dev-1@<machine>`,
+  `dev-2@<machine>`, so `parallel.max_parallel_dev` counts per machine (each machine has its
+  own ports and test databases). Set `SQUAD_HOST` to choose the name.
+- Before a developer, QA or reviewer starts on an item it **claims** it: a "Started by … ·
+  claim" comment on the issue, and the earliest claim wins. If two machines reach for the
+  same item at the same moment, the second one backs off (`claimed_elsewhere`), and
+  `next.sh` does not offer an item another machine is working on.
+- A claim older than `parallel.claim_ttl_minutes` (default 120: a machine that crashed) is
+  reported as stale; clear it with `board.sh release <issue> --force`.
+- Agree on one stakeholder for the gates, and one person (with the Railway login) for
+  releases and infrastructure. Gate answers are recorded on the issues and in
+  `docs/requirements/`, so either PM session can continue from them.
+- Splitting work by epic (`/squad:run scope=#<epic>` per person) keeps runs easy to follow.
+
 ## Day-to-day workflow
 
 | You want to | Say or run |
@@ -210,7 +250,8 @@ The team never approves a gate for you, and it never treats silence as approval.
 | Key | Meaning |
 |---|---|
 | `commands.*` | install, test, lint, e2e, build and start (QA runs the app on `$PORT`), and an idempotent `services` command (e.g. start a test Postgres) |
-| `parallel.max_parallel_dev` | developer slots (worktrees), default 2 |
+| `parallel.max_parallel_dev` | developer slots (worktrees) per machine, default 2 |
+| `parallel.claim_ttl_minutes` | a claim older than this (a crashed machine) is reported as stale, default 120 |
 | `parallel.max_open_prs` | no new developers while this many PRs wait for review |
 | `parallel.max_agents` | subagents dispatched at once by the run loop (memory), default 3 |
 | `parallel.port_base`, `test_db_prefix`, `database_url_template` | per-slot port and test database |
