@@ -51,6 +51,11 @@ cmd_check() {
   ci="$(ci_state "$pr")"
   req="$(cfg '.merge.require_ci')"; [[ "$req" == false ]] || req=true
   issue="$(jq -r '.closingIssuesReferences[0].number // empty' <<<"$j")"
+  if [[ -z "$issue" ]]; then   # GitHub links "Closes #N" with a delay: use the body or branch name
+    issue="$(gh pr view "$pr" --repo "$OWNER/$REPO" --json body -q .body | grep -oiE '(closes|fixes|resolves) #[0-9]+' | head -n1 | grep -oE '[0-9]+' || true)"
+    [[ -n "$issue" ]] || issue="$(jq -r '.headRefName' <<<"$j" | sed -nE 's#^(feat|fix)/([0-9]+)-.*#\2#p')"
+    [[ -z "$issue" ]] || j="$(jq --argjson n "$issue" '.closingIssuesReferences = [{number: $n}]' <<<"$j")"
+  fi
   body=""; [[ -z "$issue" ]] || body="$(gh issue view "$issue" --repo "$OWNER/$REPO" --json body -q .body)"
   local expected excl; excl="$(cfg '.limits.pr_size_exclude')"; excl="${excl:-[]}"
   expected="$(awk '/^##+[ \t]*Files \(expected\)/{f=1;next} f&&/^#+[ \t]/{f=0} f&&/^[ \t]*[-*]/{print}' <<<"$body" \
@@ -126,7 +131,8 @@ cmd_reject() {
   [[ ( "$next" == review || "$next" == rework ) && "${3:-}" == "-" ]] \
     || die "usage: pr.sh reject <pr> <review|rework> - (reason on stdin)"
   reason="$(cat)"; [[ -n "$reason" ]] || die "empty reason"
-  issue="$(gh pr view "$pr" --repo "$OWNER/$REPO" --json closingIssuesReferences -q '.closingIssuesReferences[0].number // empty')"
+  issue="$(gh pr view "$pr" --repo "$OWNER/$REPO" --json closingIssuesReferences,headRefName \
+           -q '.closingIssuesReferences[0].number // (.headRefName | capture("^(feat|fix)/(?<n>[0-9]+)-").n) // empty')"
   gh pr edit "$pr" --repo "$OWNER/$REPO" --remove-label review:passed >/dev/null
   gh pr comment "$pr" --repo "$OWNER/$REPO" \
     --body "$(printf 'Team Lead final check: **not merged** (next: %s).\n\n%s' "$next" "$reason")" >/dev/null

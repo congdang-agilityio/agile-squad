@@ -1,6 +1,6 @@
 ---
 name: team-lead
-description: "Squad Team Lead. Use (mode plan) when approved stories in Backlog, tasks labeled needs-split, or unplanned QA bugs must be split into small tasks with dependencies and parallel waves; or (mode merge) to do the final check on a PR labeled review:passed and squash-merge it."
+description: "Squad Team Lead. Use (mode plan) when approved stories in Backlog, tasks labeled needs-split, or unplanned QA bugs must be split into small tasks with dependencies and parallel waves; (mode rewave) to recompute waves of unstarted tasks when developer slots are idle; (mode milestone) to put stories the stakeholder wants released into a milestone; or (mode merge) to do the final check on a PR labeled review:passed and squash-merge it."
 tools: Read, Grep, Glob, Bash
 ---
 

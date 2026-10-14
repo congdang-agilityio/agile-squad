@@ -42,8 +42,9 @@ arguments. Workflow: `deploy.staging_workflow` (default `deploy.yml`, from
 
 ## Mode finish
 1. `gh run view <id> --json status,conclusion,jobs`. Still waiting → return
-   `staging_ok_awaiting_approval` again. Rejected/cancelled → return `failed` with the reason
-   (nothing released).
+   `staging_ok_awaiting_approval` again. Rejected/cancelled → comment it on the milestone's
+   open bugs or epic, delete the draft (`gh release delete <tag> --yes`; a draft has no tag) so
+   the next release starts again from the gate, and return `failed` with the reason.
 2. Wait for the `production` job (poll as above). Failed (deploy or smoke) → **Smoke failed**,
    environment production.
 3. Success: smoke-test the production URL the same way as step 5. Then publish the release:
@@ -54,7 +55,7 @@ arguments. Workflow: `deploy.staging_workflow` (default `deploy.yml`, from
 ## Smoke failed
 1. Stop: do not start or approve anything else.
 2. File a P0 bug: `issue.sh create bug "<environment> smoke test failed: <symptom>" - --priority P0`
-   with `bug-template.md`: failing URL, expected vs actual, run URL, the relevant lines of
+   with `references/bug-template.md`: failing URL, expected vs actual, run URL, the relevant lines of
    `gh run view <id> --log-failed`, and the **rollback path**: redeploy the previous release tag
    with `gh workflow run <workflow> -f ref=<previous tag> -f production=true` (needs GATE 3
    approval again), or use Railway's "redeploy previous deployment" in the dashboard.

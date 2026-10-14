@@ -1,6 +1,6 @@
 ---
 name: run
-description: "PM orchestrator for squad: repeatedly read the board with next.sh and dispatch the right subagent for the highest-priority action (QA, Team Lead merge, review, rebase, planning, parallel developers by wave, deploy), relay gates and questions to the stakeholder, and stop at a human gate, after max steps, or when nothing is left (then report). Use when the stakeholder says run, continue, or keep going, or on a schedule."
+description: "PM orchestrator for squad: repeatedly read the board with next.sh and dispatch the right subagent for the highest-priority action (QA, Team Lead merge, review, rebase, planning, parallel developers by wave, deploy), relay gates and questions to the stakeholder, and stop at a requirements gate, when only GATE 3 is left, after max steps, or when nothing is left (then report). Use when the stakeholder says run, continue, or keep going, or on a schedule."
 ---
 
 # squad: run (PM loop)
@@ -20,16 +20,21 @@ Scripts: `${CLAUDE_PLUGIN_ROOT}/scripts/next.sh`. Agents: `squad:ba-analyst`,
 read from the board itself. Result contract: `references/agent-output.md`.
 
 ## One step
-1. `next.sh [--scope <issues>]`. Take the **first** action in the list (the list is already
-   in priority order); `dev` actions that follow each other form one batch.
-2. Act:
+1. `next.sh [--scope <issues>]`. Dispatch its **`batch`**: every action in it, all in **one
+   message** (several Agent calls run in parallel). The batch has at most one action per
+   independent lane (deploy, QA, PR review or merge, rebase, plan) plus the `dev` actions, is
+   capped by `parallel.max_agents`, and a pending requirements question stands alone. Do not wait
+   for one lane before starting another: QA can test one item while developers build the next
+   wave. If `rewave` is not empty, add `squad:team-lead` with `mode=rewave tasks=<rewave>` to
+   the batch (it recomputes waves for unstarted tasks so idle slots get work).
+2. Act on each action:
    | Action | What the PM does |
    |---|---|
    | `notify_needs_human` | Tell the stakeholder which items are stuck and why (read their last comment). Once per run; then continue with the next action. |
    | `ask_stakeholder` | Requirements are being clarified: run the `ba` skill, Phase B. Stop the loop until answers arrive. |
-   | `gate_3` | A production deploy waits for approval: give the stakeholder the run URL and the staging smoke results; ask them to approve or reject on GitHub. Stop the loop. |
+   | `gate_3` | A production deploy waits for approval (never in the batch): once per run, give the stakeholder the run URL and the staging smoke results and ask them to approve or reject on GitHub. Keep dispatching the batch; the deploy lane waits. |
    | `deploy_finish` | `squad:devops` with `mode=finish run=<run_id> milestone=<title>`. |
-   | `qa` | `squad:qa-tester` with `issue=<n>`. |
+   | `qa` | `squad:qa-tester` with `issue=<n>` (plus `story check` when `story` is true). |
    | `lead_merge` | `squad:team-lead` with `mode=merge pr=<n>`. |
    | `review` | `squad:reviewer` with `pr=<n>`. |
    | `rebase` | `squad:developer` with `mode=rebase issue=<task> pr=<n> slot=<free slot>`. |
@@ -40,24 +45,33 @@ read from the board itself. Result contract: `references/agent-output.md`.
 3. Read each result block. Follow its `next` only through the next `next.sh` call; the board
    is the truth. Special results:
    - `blocked` / `ask_stakeholder` / `needs_human`: tell the stakeholder (their language),
-     with the issue link and the agent's question; continue with other work.
+     with the issue link and the agent's question; continue with other work. When they answer,
+     record it on the issue and remove `blocked` so the item is picked up again.
    - `story_too_big`: ask the BA (`ba` skill, mode `revise`) for the suggested split and
      present it at GATE 2.
-   - `staging_ok_awaiting_approval`: GATE 3, as above. Stop.
+   - `staging_ok_awaiting_approval`: GATE 3, as above; continue with the other lanes.
    - A result that contradicts the board (e.g. "merged" but the PR is open): re-run
      `next.sh` and dispatch again once; if it repeats, tell the stakeholder.
-4. Log one line for the step: `step k: <action> → <status> (<issue/pr>)`.
+4. Log one line per dispatch: `step k: <action> → <status> (<issue/pr>)`.
 
 ## Stop when
-- a human gate or a stakeholder question is pending (GATE 1, 2, 3; `ask_stakeholder`),
+- a stakeholder question or GATE 1/2 is pending (`ask_stakeholder`), or GATE 3 is pending and
+  the batch is empty,
 - `max-steps` steps are done,
 - `next.sh` returns no actions (after the report),
 - the same action fails twice in a row.
 
+## Releases
+`next.sh` lists `unreleased`: Done stories whose tasks belong to no milestone, so nothing will
+deploy them. Ask the stakeholder whether to release them and under which milestone title
+(e.g. `v0.3.0 login`). Their answer (also when given with the run request) → record it on the
+epic, then `squad:team-lead` with `mode=milestone milestone=<title> stories=<…>`; the next
+`next.sh` offers `deploy_release` once the deploy gate passes.
+
 ## End of run
 Tell the stakeholder, in their language: the step log, what changed on the board (merged PRs,
-items Done/Released), what is waiting for them (gates, questions, needs-human), and what the
-next run would do (the first action of a fresh `next.sh`).
+items Done/Released), what is waiting for them (gates, questions, needs-human, unreleased
+stories), and what the next run would do (the first action of a fresh `next.sh`).
 
 ## Never
 - Edit code, review, test, plan, merge or deploy in the main session.

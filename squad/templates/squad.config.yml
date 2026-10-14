@@ -19,6 +19,7 @@ commands:
 parallel:
   max_parallel_dev: 2
   max_open_prs: 4
+  max_agents: 3                   # subagents dispatched at once by the run loop (memory)
   port_base: 4100
   test_db_prefix: app_test
   database_url_template: ""       # e.g. postgresql://postgres:postgres@localhost:5432/{db}
@@ -38,4 +39,4 @@ limits:
   story_max_tasks: 5
   pr_max_lines: { XS: 50, S: 150, M: 300 }
   pr_max_files: { XS: 3, S: 6, M: 10 }
-  pr_size_exclude: ["**/*.test.*", "**/__tests__/**", "**/*.lock", "package-lock.json", "**/generated/**"]
+  pr_size_exclude: ["**/*.test.*", "**/__tests__/**", "**/*.lock", "package-lock.json", "**/generated/**", "**/migration_lock.toml"]

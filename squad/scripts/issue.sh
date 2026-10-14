@@ -13,6 +13,9 @@
 #   issue.sh children <issue>          JSON list of sub-issues with state, labels and board status
 #   issue.sh parent <issue>            Parent issue number, or empty if none
 #   issue.sh labels                    Create or update every squad label (idempotent)
+#   issue.sh milestone <title> <story>...
+#                                      Create the milestone if missing (idempotent) and put each
+#                                      story, its tasks and their bugs in it. Prints JSON.
 #   issue.sh publish <slug>            After GATE 2: create the epic from
 #                                      docs/requirements/<slug>/epic.md and one story per
 #                                      stories/S-*.md as its sub-issues in Backlog, with the
@@ -77,6 +80,28 @@ cmd_children() {
   jq --slurpfile bf "$board" '$bf[0] as $b | map(. as $i | {number, title, state, labels: [.labels.nodes[].name],
        status: ([$b[] | select(.number == $i.number) | .status] | first)})' <<<"$subs"
   rm -f "$board"
+}
+
+cmd_milestone() {
+  local title="${1:?usage: issue.sh milestone <title> <story>...}"; shift
+  [[ $# -gt 0 ]] || die "usage: issue.sh milestone <title> <story>..."
+  local num
+  num="$(gh api "repos/$OWNER/$REPO/milestones?state=all&per_page=100" \
+           --jq "[.[] | select(.title == \"$title\")][0].number // empty")"
+  if [[ -z "$num" ]]; then
+    gh api "repos/$OWNER/$REPO/milestones" -f title="$title" >/dev/null
+    info "created milestone '$title'"
+  fi
+  local all=() s n m
+  for s in "$@"; do
+    s="${s#\#}"; all+=("$s")
+    for n in $(cmd_children "$s" | jq -r '.[].number'); do
+      all+=("$n")
+      for m in $(cmd_children "$n" | jq -r '.[] | select(.labels | index("type:bug")) | .number'); do all+=("$m"); done
+    done
+  done
+  for n in "${all[@]}"; do gh issue edit "$n" --repo "$OWNER/$REPO" --milestone "$title" >/dev/null; done
+  printf '%s\n' "${all[@]}" | jq -R 'tonumber' | jq -s --arg t "$title" '{milestone: $t, issues: .}'
 }
 
 cmd_create() {
@@ -161,7 +186,7 @@ need gh jq git awk
 cmd="${1:-}"; [[ $# -gt 0 ]] && shift
 case "$cmd" in
   -h|--help|help|"") usage_from "$0"; [[ -n "$cmd" ]] ;;
-  create|link|children|parent|publish) load_project; "cmd_$cmd" "$@" ;;
+  create|link|children|parent|publish|milestone) load_project; "cmd_$cmd" "$@" ;;
   labels)
     load_config; OWNER="$(cfg_req .owner)"; REPO="$(cfg_req .repo)"; cmd_labels ;;
   *) die "unknown command '$cmd' (see --help)" ;;

@@ -12,6 +12,15 @@ The PM (main session) dispatches the `team-lead` subagent with one mode:
   (`tasks`: `needs-split` tasks or QA bugs to plan. Neither given: every story in `Backlog`,
   every task labeled `needs-split`, every `type:bug` in `Todo` without a Wave)
 - `mode=merge pr=<n> config=.squad/config.yml`
+- `mode=rewave tasks=#a,#b config=.squad/config.yml`: tasks finished at different speeds and
+  developer slots are idle while ready tasks wait in later waves. Run
+  `waves.sh plan <tasks> --write` for exactly the given unstarted tasks (dependencies on
+  finished or in-flight tasks are respected), post a short "Waves updated" comment on the epic
+  with the new waves, and return `planned`. Change nothing else.
+- `mode=milestone milestone=<title> stories=#36,#63 config=.squad/config.yml`: the stakeholder
+  named a release. Run `issue.sh milestone "<title>" <stories>` (creates it if missing and puts
+  each story, its tasks and their bugs in it), comment the list on the epic, and return
+  `milestone_set` with `milestone` and `issues`. Change nothing else.
 
 Scripts: `${CLAUDE_PLUGIN_ROOT}/scripts/` (`board.sh`, `issue.sh`, `waves.sh`, `pr.sh`). Call
 them with literal arguments, no shell variables. Rules: `references/board-conventions.md`

@@ -45,6 +45,9 @@ arguments. Template: `references/bug-template.md`. Rules: `references/board-conv
      `Done`): report it in `notes` so the PM dispatches QA for the parent.
   4. **Story:** if every task of the parent story is `Done`/`Released` and it has no open bugs,
      verify the story's ACs end to end the same way, then comment and move the story to `Done`.
+     (`issue=<story>` with `story: true` from the PM: do only this check.) An AC that only the
+     stakeholder can confirm and has no recorded answer is not a bug: comment what is needed,
+     `gh issue edit <story> --add-label blocked`, return `blocked` with the question.
   5. **Milestone:** if the item has a milestone and every issue in it is `Done`/`Released` with
      no open bug, append "Ready to deploy (<date>)" to the milestone description
      (`gh api -X PATCH repos/<owner>/<repo>/milestones/<m> -f description=…`) and return
