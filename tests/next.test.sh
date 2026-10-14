@@ -64,4 +64,24 @@ rm -rf docs/requirements
 sed -i.bak 's/^  platform: railway.*/  platform: none/' .squad/config.yml
 out="$("$S/next.sh")"
 eq "deploy.platform none: nothing is unreleased" "$(jq -c .unreleased <<<"$out")" '[]'
+# model routing by complexity, and one tier up after a send-back
+sed -i.bak 's/^  platform: none.*/  platform: railway/' .squad/config.yml
+cat > "$T/items3.json" <<'JSON'
+[
+ {"number": 40, "type": "story", "status": "Todo"},
+ {"number": 41, "type": "task", "status": "Todo", "parent": 40, "size": "XS", "wave": 1, "body": "- **Complexity:** high (session cookie handling)\n- **Depends on:** none"},
+ {"number": 42, "type": "task", "status": "Todo", "parent": 40, "size": "M", "wave": 1, "attempts": 1, "body": "- **Complexity:** low (copy change)\n- **Depends on:** none"},
+ {"number": 43, "type": "task", "status": "In Review", "parent": 40, "size": "M", "body": "- **Complexity:** low (copy)"}
+]
+JSON
+echo '[{"number": 103, "title": "x (#43)", "body": "Closes #43", "labels": [], "headRefName": "feat/43-x", "isDraft": false, "closingIssuesReferences": []}]' > "$T/prs.json"
+python3 "$FIX/board.py" "$T/items3.json" next > "$T/next.json"; python3 "$FIX/board.py" "$T/items3.json" board > "$T/board.json"
+out="$("$S/next.sh")"
+eq "a small but high-complexity task gets the strong model" "$(act dev 'select(.issue == 41) | [.model, .model_reason]')" '[["opus","complexity high"]]'
+eq "a sent-back low task runs one tier higher" "$(act dev 'select(.issue == 42) | [.model, .model_reason]')" '[["opus","complexity low; attempt 2: sonnet -> opus"]]'
+eq "complexity beats size for review (M but low)" "$(act review '[.issue, .model]')" '[[43,"sonnet"]]'
+printf '  escalate_on_retry: false\n' > "$T/esc"; sed -i.bak '/^  escalate_on_retry:/d' .squad/config.yml
+sed -i.bak "/^  qa: {/r $T/esc" .squad/config.yml
+out="$("$S/next.sh")"
+eq "escalation can be turned off" "$(act dev 'select(.issue == 42) | .model')" '["sonnet"]'
 cd / && rm -rf "$(dirname "$R")" "$T"

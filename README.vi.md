@@ -71,8 +71,8 @@ flowchart LR
   đâu cả: CLI dùng chính phiên đăng nhập của bạn.
 - **Lane nhanh cho thay đổi nhỏ.** `/squad:fix "<nội dung>"` biến một yêu cầu nhỏ thành một
   task, chạy qua dev, review, merge và QA, không cần BA và các gate về story.
-- **Kiểm soát chi phí.** Task nhỏ chạy bằng model rẻ hơn (cấu hình `models`), và mỗi lần chạy
-  dừng lại khi chạm ngân sách token.
+- **Kiểm soát chi phí.** Mỗi task chạy bằng model rẻ nhất mà độ phức tạp của nó cho phép, chỉ
+  lên bậc khi bị trả về, và mỗi lần chạy dừng lại khi chạm ngân sách token.
 - **Hàng rào bảo vệ bằng code.** Một hook chặn việc push lên `main`, merge bằng `--admin` và
   tự approve; mỗi vai trò chỉ được ghi file trong phạm vi của mình (developer chỉ trong
   worktree của họ).
@@ -218,7 +218,8 @@ trong phiên chính.
 | `parallel.max_agents` | số subagent tối đa được giao cùng lúc (giới hạn bộ nhớ), mặc định 3 |
 | `parallel.port_base`, `test_db_prefix`, `database_url_template` | port và database test cho từng slot |
 | `merge.require_ci` | chỉ merge khi CI xanh |
-| `models.<vai trò>` | model cho mỗi lần giao việc (`sonnet`, `opus`, `haiku`) với dev, review, qa (theo cỡ task `XS`/`S`/`M`, QA có thêm `story`), rebase, merge, deploy, và `quick` (quyết định của Team Lead cho `/squad:fix`) |
+| `models.<vai trò>` | model cho mỗi lần giao việc (`haiku`, `sonnet`, `opus`). Dev, review và QA chọn theo **Complexity** của task (`low`/`medium`/`high`, Team Lead đánh giá theo rủi ro: auth, tiền, dữ liệu, migration, chạy đồng thời là high dù nhỏ), nếu không có thì theo cỡ task; QA có thêm `story`. Ngoài ra rebase, merge, deploy, infra và `quick` |
+| `models.escalate_on_retry` | task bị review hoặc QA trả về sẽ chạy model cao hơn một bậc (haiku → sonnet → opus); mặc định `true` |
 | `budget.max_tokens_per_run` | `/squad:run` ngừng giao việc mới khi tổng token các subagent báo về chạm mức này (ước lượng; mặc định 2.000.000) |
 | `deploy.*` | `platform` (`railway` hoặc `none`); `railway.project`, `railway.service`, `railway.environments`; `gate_workflow`; URL staging và production |
 | `limits.*` | số lần thử trước khi gắn `needs-human`, cỡ story, giới hạn dòng/file của PR theo cỡ task, các file không tính vào kích thước |

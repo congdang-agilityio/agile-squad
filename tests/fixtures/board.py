@@ -19,12 +19,14 @@ for i in items:
             "priority": {"name": i["priority"]} if i.get("priority") else None,
             "size": {"name": i["size"]} if i.get("size") else None,
             "wave": {"number": i["wave"]} if i.get("wave") is not None else None,
-            "agent": {"text": i["agent"]} if i.get("agent") else None})
+            "agent": {"text": i["agent"]} if i.get("agent") else None,
+            "attempts": {"number": i["attempts"]} if i.get("attempts") is not None else None})
     else:
         fv = []
         for f, k in (("Status", "status"), ("Priority", "priority"), ("Size", "size")):
             if i.get(k): fv.append({"__typename": "ProjectV2ItemFieldSingleSelectValue", "name": i[k], "field": {"name": f}})
         if i.get("wave") is not None: fv.append({"__typename": "ProjectV2ItemFieldNumberValue", "number": i["wave"], "field": {"name": "Wave"}})
         if i.get("agent"): fv.append({"__typename": "ProjectV2ItemFieldTextValue", "text": i["agent"], "field": {"name": "Agent"}})
+        if i.get("attempts") is not None: fv.append({"__typename": "ProjectV2ItemFieldNumberValue", "number": i["attempts"], "field": {"name": "Attempts"}})
         nodes.append({"id": f"PVTI_{i['number']}", "isArchived": False, "content": content(i), "fieldValues": {"nodes": fv}})
 print(json.dumps({"data": {"node": {"items": {"pageInfo": {"hasNextPage": False, "endCursor": None}, "nodes": nodes}}}}))

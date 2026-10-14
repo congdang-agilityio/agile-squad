@@ -30,8 +30,9 @@
 # review/merge, rebase, plan, plus all dev actions), at most parallel.max_agents subagents; a
 # pending stakeholder gate stands alone. "rewave": unstarted tasks whose waves should be
 # recomputed (free slots idle while ready tasks wait in later waves).
-# Each action carries "model" when config models names one for its role (and the item's Size):
-# the PM passes it to the Agent call. QA actions on quick-lane tasks carry "quick": true.
+# Each action carries "model" when config models names one for its role (by the task's
+# Complexity, else its Size; one tier higher after a send-back) and "model_reason": the PM
+# passes the model to the Agent call. QA actions on quick-lane tasks carry "quick": true.
 # An empty "actions" list means nothing is left: report and stop.
 # Config: $SQUAD_CONFIG or .squad/config.yml in the main worktree.
 set -euo pipefail
@@ -56,12 +57,13 @@ Q='query($id:ID!,$endCursor:String){node(id:$id){... on ProjectV2{items(first:10
     status: fieldValueByName(name:"Status"){... on ProjectV2ItemFieldSingleSelectValue{name}}
     priority: fieldValueByName(name:"Priority"){... on ProjectV2ItemFieldSingleSelectValue{name}}
     size: fieldValueByName(name:"Size"){... on ProjectV2ItemFieldSingleSelectValue{name}}
+    attempts: fieldValueByName(name:"Attempts"){... on ProjectV2ItemFieldNumberValue{number}}
     wave: fieldValueByName(name:"Wave"){... on ProjectV2ItemFieldNumberValue{number}}
     agent: fieldValueByName(name:"Agent"){... on ProjectV2ItemFieldTextValue{text}}}}}}}'
 gh api graphql --paginate -f query="$Q" -F id="$PROJECT_ID" \
   | jq -s --arg repo "$OWNER/$REPO" '[.[].data.node.items.nodes[]
       | select((.isArchived | not) and .content.repository.nameWithOwner == $repo)
-      | .content + {status: .status.name, priority: .priority.name, size: .size.name, wave: (.wave.number | if . == null then null else floor end),
+      | .content + {status: .status.name, priority: .priority.name, size: .size.name, attempts: (.attempts.number // 0 | floor), wave: (.wave.number | if . == null then null else floor end),
                     agent: .agent.text, labels: [.content.labels.nodes[].name],
                     milestone: .content.milestone.title, parent: .content.parent.number}
       | del(.repository)]' > "$T/items.json"
@@ -236,16 +238,37 @@ for g in gates:
     if g["ok"] and g["tag"] not in draft_names and not any(a["action"] in ("gate_3", "deploy_finish") for a in actions):
         actions.append({"action": "deploy_release", "milestone": g["milestone"]})
 
-# model per dispatch from config models: {role: model | {XS|S|M|story: model}}; an unknown
-# size gets the M model (the strongest one configured for that role)
+# model per dispatch from config models: {role: model | {low|medium|high|XS|S|M|story: model}}.
+# The task's Complexity (body line, set by the Team Lead) decides; a task without one uses its
+# Size; unknown → the strongest entry. A task sent back (Attempts >= 1) runs one tier higher
+# (models.escalate_on_retry, default true): start cheap, pay more only where it failed.
 roles = {"qa": "qa", "lead_merge": "merge", "review": "review", "rebase": "rebase", "plan": "plan",
          "dev": "dev", "deploy_release": "deploy", "deploy_finish": "deploy", "infra": "infra"}
+TIERS = ["haiku", "sonnet", "opus"]
+def complexity(i):
+    m = re.search(r"\*\*Complexity:\*\*\s*(low|medium|high)\b", i.get("body") or "", re.I)
+    return m.group(1).lower() if m else None
+escalate = models.get("escalate_on_retry", True) is not False
 for a in actions:
-    m = models.get(roles.get(a["action"], ""))
+    role = roles.get(a["action"], "")
+    m = models.get(role)
     if isinstance(m, dict):
-        key = "story" if a.get("story") else (by.get(a.get("issue"), {}).get("size") or "M")
-        m = m.get(key) or m.get("M")
-    if m: a["model"] = m
+        item = by.get(a.get("issue"), {})
+        c, sz = complexity(item), item.get("size")
+        if a.get("story") and "story" in m: key, why = "story", "story check"
+        elif c and c in m: key, why = c, f"complexity {c}"
+        elif sz and sz in m: key, why = sz, f"size {sz}"
+        else:
+            key = next((k for k in ("high", "M") if k in m), None)
+            why = "unknown complexity and size: strongest"
+        m = m.get(key) if key else None
+        if m and escalate and role in ("dev", "review", "qa") and (item.get("attempts") or 0) >= 1 \
+                and m in TIERS and m != TIERS[-1]:
+            up = TIERS[TIERS.index(m) + 1]
+            why += f"; attempt {item['attempts'] + 1}: {m} -> {up}"
+            m = up
+        if m: a["model_reason"] = why
+    if isinstance(m, str) and m: a["model"] = m
 
 # batch: what can be dispatched together now, one action per independent lane, at most
 # parallel.max_agents subagents. A requirements question stands alone; a pending GATE 3 only

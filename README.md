@@ -71,8 +71,8 @@ flowchart LR
   the CLI uses your own login.
 - **A quick lane for small changes.** `/squad:fix "<what>"` turns one small request into one
   task and runs it through dev, review, merge and QA, without the BA and story gates.
-- **Cost control.** Small tasks run on cheaper models (config `models`), and each run stops
-  at a token budget.
+- **Cost control.** Each task runs on the cheapest model its complexity allows, moving up a
+  tier only if it gets sent back, and each run stops at a token budget.
 - **Guard rails in code.** A hook blocks pushes to `main`, `--admin` merges and self-approvals,
   and keeps each role's file writes in its lane (developers only in their worktree).
 - **Honest reports.** Every number in a report comes from `metrics.sh`, never from the model.
@@ -215,7 +215,8 @@ The team never approves a gate for you, and it never treats silence as approval.
 | `parallel.max_agents` | subagents dispatched at once by the run loop (memory), default 3 |
 | `parallel.port_base`, `test_db_prefix`, `database_url_template` | per-slot port and test database |
 | `merge.require_ci` | merge only with green CI |
-| `models.<role>` | model per dispatch (`sonnet`, `opus`, `haiku`) for dev, review, qa (by task size `XS`/`S`/`M`, QA also `story`), rebase, merge, deploy, and `quick` (the Team Lead's `/squad:fix` decision) |
+| `models.<role>` | model per dispatch (`haiku`, `sonnet`, `opus`). Dev, review and QA go by the task's **Complexity** (`low`/`medium`/`high`, judged by the Team Lead from the risk: auth, money, data, migrations and concurrency are high even when small), else by its Size; QA also `story`. Also rebase, merge, deploy, infra and `quick` |
+| `models.escalate_on_retry` | a task sent back by review or QA runs one tier higher (haiku → sonnet → opus); default `true` |
 | `budget.max_tokens_per_run` | `/squad:run` stops dispatching once its subagents reported this many tokens (approximate; default 2,000,000) |
 | `deploy.*` | `platform` (`railway` or `none`); `railway.project`, `railway.service`, `railway.environments`; `gate_workflow`; staging and production URLs |
 | `limits.*` | attempts before `needs-human`, story size, PR line/file limits per task size, files excluded from the size check |

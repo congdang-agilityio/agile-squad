@@ -7,6 +7,7 @@
 - **Story:** #<story>
 - **Layer:** schema | service | api | ui | job | config | infra | test
 - **Size:** XS | S | M (~<lines> changed lines, <files> files, excluding tests)
+- **Complexity:** low | medium | high (<one-line reason>; picks the model, see plan skill)
 - **Serial:** no | yes (<reason: database migration, dependency change, shared routing/config, CI/build>)
 - **Depends on:** none | #<task>, #<task>
 

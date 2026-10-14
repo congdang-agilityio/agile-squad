@@ -19,8 +19,9 @@ Scripts: `${CLAUDE_PLUGIN_ROOT}/scripts/next.sh`. Agents: `squad:ba-analyst`,
 `squad:team-lead`, `squad:developer`, `squad:reviewer`, `squad:qa-tester`, `squad:devops`,
 `squad:reporter`. Each dispatch passes `config=.squad/config.yml` and nothing the agent can
 read from the board itself. Result contract: `references/agent-output.md`.
-**Model:** when an action has `model`, pass it as the Agent call's `model` (cheap models for
-small tasks, from config `models`); without it, use the agent's default.
+**Model:** when an action has `model`, pass it as the Agent call's `model` (chosen by the
+task's complexity, one tier higher after a send-back; `model_reason` says why); without it,
+use the agent's default.
 
 ## One step
 1. `next.sh [--scope <issues>]`. Dispatch its **`batch`**: every action in it, all in **one
@@ -74,7 +75,7 @@ small tasks, from config `models`); without it, use the agent's default.
 4. **Budget.** Each Agent result carries usage metadata from Claude Code
    (`subagent_tokens`), not from the agent's own text. Add them up for this run. Once the total reaches `max-tokens`, dispatch nothing new: let running agents
    finish, then stop and tell the stakeholder the total and what is left.
-5. Log one line per dispatch: `step k: <action> [model] → <status> (<issue/pr>, <tokens>)`.
+5. Log one line per dispatch: `step k: <action> [model, reason] → <status> (<issue/pr>, <tokens>)`.
 
 ## Stop when
 - a stakeholder question or GATE 1/2 is pending (`ask_stakeholder`, `gate_1`, `gate_2`), or GATE 3 is pending and

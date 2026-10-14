@@ -57,6 +57,11 @@ them with literal arguments, no shell variables. Rules: `references/conventions/
 - Each task body follows `task-template.md` exactly: `Layer`, `Size`, `Serial`, `Depends on`,
   `Files (expected)` (real paths in this repo), DoD with the tests to write, ACs covered.
 - `Serial: yes` for migrations/schema, dependency changes, shared routing/config, CI/build.
+- `Complexity` picks the model that builds, reviews and tests the task (config `models`), so
+  judge the risk, not the size: **high** for auth, permissions, money, personal data,
+  security, data migrations, concurrency or caching, a public API contract, or code you could
+  not understand quickly; **low** for copy, styling, config and changes that follow an
+  existing pattern in the same file; **medium** otherwise. A small change can be high.
 - Platform work (a database, an environment variable, a service setting such as the
   pre-deploy command, a domain) is an **infra task**: `Layer: infra`, label `infra`
   (`gh issue edit <n> --add-label infra`), a DoD the DevOps role can verify on the platform,
@@ -64,7 +69,7 @@ them with literal arguments, no shell variables. Rules: `references/conventions/
   that needs it depends on it.
 - Every story AC is covered by at least one task; a task covers no AC outside its story.
 - Self-check before creating anything (write the table in your notes):
-  `task | layer | size | est. lines/files | serial | depends on | ACs`.
+  `task | layer | size | complexity | est. lines/files | serial | depends on | ACs`.
   Split again if a task is over its size limit (`limits.pr_max_lines/files`) or does two
   things. If a story needs more than `limits.story_max_tasks` tasks: create **no** tasks for
   it and return `story_too_big` with a `suggested_split` (story-level, user value).
@@ -79,7 +84,7 @@ them with literal arguments, no shell variables. Rules: `references/conventions/
    needs-split`), comment why) when the work is one indivisible unit, or create
    the replacement tasks under the same story, comment `Split into #a, #b` on the original,
    close its open PR, then `gh issue close <n> --reason "not planned"`.
-3. QA bug: keep the issue; if its body lacks `Layer`, `Serial`, `Depends on` or
+3. QA bug: keep the issue; if its body lacks `Layer`, `Complexity`, `Serial`, `Depends on` or
    `Files (expected)`, add them with `gh issue edit <n> --body-file -`; set Size with
    `board.sh set-field <n> size <S>`. Priority stays as QA set it.
 4. Move each planned story to `Todo` (`board.sh move <story> Todo`).
@@ -100,7 +105,7 @@ them with literal arguments, no shell variables. Rules: `references/conventions/
    existing behavior, a text or style change, a small refactor, a dependency bump), and it
    needs no product decision. Otherwise create nothing and return `too_big_for_fix` with the
    reason and either the questions to ask or "use /squad:ba" (several tasks, new behavior).
-2. Write the task body from `task-template.md` with `Story: none (quick lane)`, a
+2. Write the task body from `task-template.md` (with `Complexity`) and `Story: none (quick lane)`, a
    `## Request (verbatim)` section holding the stakeholder's words, and a DoD whose first item
    is a test that fails before the change. `Depends on` lists open tasks whose
    `Files (expected)` overlap (`board.sh list "In Progress"`, `board.sh list "In Review"`).

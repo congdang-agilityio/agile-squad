@@ -3,6 +3,18 @@
 All notable changes to agile-squad. Versions follow [Semantic Versioning](https://semver.org);
 the plugin version lives in `squad/.claude-plugin/plugin.json` and the marketplace entry.
 
+## [0.5.0] - 2026-10-15
+
+### Added
+- **Model routing by complexity.** The Team Lead gives every task a `Complexity`
+  (`low`/`medium`/`high`) judged by risk, not size: auth, permissions, money, personal data,
+  security, migrations, concurrency and public API contracts are high even when small.
+  `next.sh` picks dev, review and QA models by complexity (falling back to Size for older
+  tasks) and adds `model_reason` to each action. Unlike a run-time classifier, this costs no
+  extra model call: the Team Lead already reads the code when planning.
+- **Escalate on retry** (`models.escalate_on_retry`, default on): a task sent back by review
+  or QA runs one tier higher (haiku → sonnet → opus) on its next attempt.
+
 ## [0.4.0] - 2026-10-15
 
 ### Added
@@ -90,6 +102,7 @@ the plugin version lives in `squad/.claude-plugin/plugin.json` and the marketpla
   reporter subagents on a GitHub Projects board; three human gates; parallel developers in
   worktrees; GitHub Actions deploys to Railway with production approval.
 
+[0.5.0]: https://github.com/congdang-agilityio/agile-squad/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/congdang-agilityio/agile-squad/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/congdang-agilityio/agile-squad/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/congdang-agilityio/agile-squad/compare/v0.2.0...v0.3.0

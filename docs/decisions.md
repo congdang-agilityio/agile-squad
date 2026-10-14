@@ -137,3 +137,13 @@ GitHub held one Railway token per environment.
   exactly what staging ran.
 - Platform work is planned as `infra` tasks; staging changes are autonomous, production
   changes need the stakeholder's explicit yes.
+
+## D-17 (2026-10-15): Models by complexity, not size; escalate on retry
+Size measures lines, not risk: a 20-line change to session handling is hard, 250 lines of
+boilerplate are easy. Borrowed from super-board's per-card router, but without its extra
+run-time classifier call: the Team Lead sets `Complexity` while planning, with a written
+rubric, and `next.sh` maps role × complexity to a model (Size remains the fallback for tasks
+planned before). A task sent back by review or QA runs one tier higher next time, so the
+cheap model is tried first and the expensive one is paid for only where it failed. The
+savings are not measured yet: compare the PM's end-of-run token totals per role (or
+`claude -p` total_cost_usd) for similar work before and after, on a real project.

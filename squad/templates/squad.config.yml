@@ -25,11 +25,13 @@ parallel:
   port_base: 4100
   test_db_prefix: app_test
   database_url_template: ""       # e.g. postgresql://postgres:postgres@localhost:5432/{db}
-models:                           # model per dispatch (sonnet | opus | haiku), by task Size;
-                                  # missing = the agent's default. The PM passes it to each Agent call.
-  dev: { XS: sonnet, S: sonnet, M: opus }
-  review: { XS: sonnet, S: opus, M: opus }
-  qa: { XS: sonnet, S: sonnet, M: opus, story: opus }
+models:                           # model per dispatch (haiku | sonnet | opus); missing = the agent's
+                                  # default. By the task's Complexity (low/medium/high, set by the
+                                  # Team Lead); tasks without one use their Size (XS/S/M).
+  dev: { low: sonnet, medium: sonnet, high: opus, XS: sonnet, S: sonnet, M: opus }
+  review: { low: sonnet, medium: opus, high: opus, XS: sonnet, S: opus, M: opus }
+  qa: { low: sonnet, medium: sonnet, high: opus, XS: sonnet, S: sonnet, M: opus, story: opus }
+  escalate_on_retry: true         # a task sent back by review or QA runs one tier higher
   rebase: sonnet
   merge: sonnet
   deploy: sonnet
