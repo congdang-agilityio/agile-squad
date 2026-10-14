@@ -33,6 +33,13 @@ L="$(mktemp -d)"; ln -s "$(dirname "$R")" "$L/link"   # like macOS /var -> /priv
 eq "a repo reached through a symlink is the same repo" "$(hook squad:developer Write "$(fp "$L/link/work/.worktrees/12/a.ts")" "$L/link/work")" 0
 eq "a symlinked path outside the worktree is still blocked" "$(hook squad:developer Write "$(fp "$L/link/work/package.json")" "$L/link/work")" 2
 rm -rf "$L"
+eq "agents may not call the railway CLI directly" "$(hook squad:qa-tester Bash "$(bash_in 'railway logs --lines 50')")" 2
+eq "QA may read logs through railway.sh" "$(hook squad:qa-tester Bash "$(bash_in '/p/scripts/railway.sh logs staging --lines 50')")" 0
+eq "QA may scan errors through railway.sh" "$(hook squad:qa-tester Bash "$(bash_in '/p/scripts/railway.sh errors staging --since 1h')")" 0
+eq "QA may not change Railway" "$(hook squad:qa-tester Bash "$(bash_in '"/p/scripts/railway.sh" set-var staging A=1')")" 2
+eq "DevOps may change Railway through railway.sh" "$(hook squad:devops Bash "$(bash_in '/p/scripts/railway.sh add-db staging postgres')")" 0
+eq "DevOps may not use the railway CLI directly either" "$(hook squad:devops Bash "$(bash_in 'npx @railway/cli@5 up')")" 2
+eq "the main session may use the railway CLI" "$(hook "" Bash "$(bash_in 'railway login')")" 0
 O="$(new_repo)"
 eq "outside a squad repo nothing is blocked" "$(hook "" Bash "$(bash_in 'git push origin main')" "$O")" 0
 eq "other tools pass" "$(hook squad:reviewer Read '{"file_path":"/etc/hosts"}')" 0

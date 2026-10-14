@@ -3,6 +3,40 @@
 All notable changes to agile-squad. Versions follow [Semantic Versioning](https://semver.org);
 the plugin version lives in `squad/.claude-plugin/plugin.json` and the marketplace entry.
 
+## [0.4.0] - 2026-10-15
+
+### Added
+- **DevOps runs Railway with the Railway CLI** under the stakeholder's own `railway login`
+  (OAuth): `scripts/railway.sh` (`check`, `status`, `logs`, `deployments`, `vars` names only,
+  `deploy`, `set-var`, `add-db`, `config`, `redeploy`, `rollback`). No Railway token in
+  GitHub or the repository.
+- **Infra tasks** (label `infra`): the Team Lead plans platform work (databases, variables,
+  service settings such as the pre-deploy migration command); `next.sh` routes them to DevOps.
+- DevOps modes `infra` and `rollback`; statuses `infra_done`, `needs_approval`,
+  `rollback_proposed`, `rolled_back`.
+- Guard: subagents reach Railway only through `railway.sh`; only DevOps may change it.
+- Doctor checks the Railway CLI, the login and the project.
+- `railway.sh errors <env> --since <t>`: app error lines and HTTP 5xx in a period, grouped.
+  DevOps scans after every staging and production deploy, and in the new `mode=health`
+  (`/squad:deploy health`, e.g. every 6 hours with `/loop`), filing or updating bugs with a
+  priority (P0 main flow down, P1 repeated 5xx/exceptions, P2 occasional).
+- `railway.sh domain <env>`: the public URL, generated when missing.
+
+### Changed
+- Releases: DevOps deploys staging, then exactly the approved commit to production, with the
+  CLI. GATE 3 stays on GitHub: `templates/release-gate.yml` (replaces `deploy.yml`) only
+  records the approval and holds no secrets. `release.sh deploy` is now `release.sh approval`.
+- Production changes need the stakeholder: the GATE 3 run (checked against the commit) for a
+  release, their quoted words for infra changes and rollbacks; every change is commented on
+  the issue. Secrets are refused; the stakeholder sets them with the command DevOps gives.
+- Failed deploys come with build and runtime logs in the P0 bug.
+- Found by the live test and fixed before release: `railway up --ci` never returns (it follows
+  the running app's logs), so deploys use `--detach` and poll the deployment by id;
+  `railway environment edit --service-config` applied nothing, so service settings use the
+  `serviceInstanceUpdate` API; deployments show their commit from the upload message.
+- Config: `deploy.railway.{project, service, environments}`, `deploy.gate_workflow`,
+  `models.infra`.
+
 ## [0.3.1] - 2026-10-15
 
 ### Fixed
@@ -56,6 +90,7 @@ the plugin version lives in `squad/.claude-plugin/plugin.json` and the marketpla
   reporter subagents on a GitHub Projects board; three human gates; parallel developers in
   worktrees; GitHub Actions deploys to Railway with production approval.
 
+[0.4.0]: https://github.com/congdang-agilityio/agile-squad/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/congdang-agilityio/agile-squad/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/congdang-agilityio/agile-squad/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/congdang-agilityio/agile-squad/compare/v0.1.0...v0.2.0

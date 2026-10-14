@@ -11,11 +11,13 @@
 #   release.sh draft <milestone> <sha>
 #                                    Create (or update) the draft GitHub Release <tag> on <sha>
 #                                    with the notes above. Prints JSON {tag, url}.
-#   release.sh deploy <sha>          Start the deploy workflow for <sha> with production=true and
-#                                    print the new run {id, url} (waits until GitHub lists it).
+#   release.sh approval <sha> [<tag>]
+#                                    Start the release-gate workflow (GATE 3) for <sha>: its
+#                                    production job waits for the stakeholder's approval on
+#                                    GitHub. Prints the new run {id, url}.
 #   release.sh wait <run> <job> [--timeout SEC]
-#                                    Poll every 30 s until job <job> (staging|production) of the
-#                                    run has finished, or is waiting for approval. Prints
+#                                    Poll every 30 s until job <job> of the run has finished, or
+#                                    is waiting for approval (production). Prints
 #                                    {run_status, job, job_status, conclusion, jobs}. Exit 4 on
 #                                    timeout (default 1800 s).
 #   release.sh publish <milestone> [--note <one line>]...
@@ -137,12 +139,12 @@ cmd_draft() {
   gh release view "$tag" --repo "$OWNER/$REPO" --json tagName,url,isDraft -q '{tag: .tagName, url, draft: .isDraft}'
 }
 
-workflow() { local wf; wf="$(cfg '.deploy.staging_workflow')"; echo "${wf:-deploy.yml}"; }
+workflow() { local wf; wf="$(cfg '.deploy.gate_workflow')"; echo "${wf:-release-gate.yml}"; }
 
-cmd_deploy() {
-  local sha="${1:?usage: release.sh deploy <sha>}" wf since _ run
+cmd_approval() {
+  local sha="${1:?usage: release.sh approval <sha> [<tag>]}" tag="${2:-}" wf since _ run
   wf="$(workflow)"; since="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  gh workflow run "$wf" --repo "$OWNER/$REPO" -f ref="$sha" -f production=true >/dev/null
+  gh workflow run "$wf" --repo "$OWNER/$REPO" -f ref="$sha" -f release="$tag" >/dev/null
   for _ in $(seq 1 20); do   # the new run shows up after a few seconds
     sleep 5
     run="$(gh run list --repo "$OWNER/$REPO" --workflow "$wf" --event workflow_dispatch --limit 10 \
@@ -150,7 +152,7 @@ cmd_deploy() {
            | jq -c --arg s "$since" '[.[] | select(.createdAt >= $s)] | sort_by(.createdAt) | last // empty')"
     [[ -n "$run" ]] && { jq -c '{id: .databaseId, url}' <<<"$run"; return; }
   done
-  die "the deploy run did not appear within 100 s (check: gh run list --workflow $wf)"
+  die "the release-gate run did not appear within 100 s (check: gh run list --workflow $wf)"
 }
 
 cmd_wait() {
@@ -197,6 +199,6 @@ need gh jq
 cmd="${1:-}"; [[ $# -gt 0 ]] && shift
 case "$cmd" in
   -h|--help|help|"") usage_from "$0"; [[ -n "$cmd" ]] ;;
-  gate|notes|draft|deploy|wait|publish|finish) load_project; "cmd_$cmd" "$@" ;;
+  gate|notes|draft|approval|wait|publish|finish) load_project; "cmd_$cmd" "$@" ;;
   *) die "unknown command '$cmd' (see --help)" ;;
 esac

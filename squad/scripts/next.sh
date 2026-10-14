@@ -23,6 +23,7 @@
 #   dev                 ready tasks of the lowest ready wave (mode implement, or rework with
 #                       "pr"), limited
 #                       by free developer slots and parallel.max_open_prs
+#   infra               a ready task labeled infra: DevOps changes the platform with railway.sh
 #   deploy_release      open milestones whose deploy gate passes and that have no draft release
 # "unreleased": Done stories (and Done quick-lane tasks) in no milestone (the PM asks for one).
 # "batch": the actions to dispatch together now (one per independent lane: deploy, qa, PR
@@ -70,7 +71,7 @@ gh api --paginate "repos/$OWNER/$REPO/milestones?state=open&per_page=100" | jq -
 gh api "repos/$OWNER/$REPO/releases?per_page=30" --jq '[.[] | {name, tag_name, id, draft}]' > "$T/drafts.json"
 platform="$(cfg '.deploy.platform')"
 if [[ "$platform" == none ]]; then echo '[]' > "$T/milestones.json"; fi   # no deploys: no release gates
-wf="$(cfg '.deploy.staging_workflow')"; wf="${wf:-deploy.yml}"
+wf="$(cfg '.deploy.gate_workflow')"; wf="${wf:-release-gate.yml}"
 gh run list --repo "$OWNER/$REPO" --workflow "$wf" --event workflow_dispatch --limit 10 \
   --json databaseId,status,conclusion,url,createdAt 2>/dev/null > "$T/runs.json" || echo '[]' > "$T/runs.json"
 : > "$T/gates.jsonl"
@@ -212,7 +213,9 @@ in_review = [p for p in prs if pr_task(p) and by.get(pr_task(p), {}).get("status
 busy = {i.get("agent") for i in in_progress if i.get("agent")}
 free = [f"{k}" for k in range(1, maxdev + 1) if f"dev-{k}" not in busy]
 planning = {t for a in actions if a["action"] == "plan" for t in a["tasks"]}
-cands = [r for r in ready if in_scope(r["number"]) and r["number"] not in planning]
+# infra tasks (label infra) are done by DevOps with the Railway CLI, not by a developer
+infra = [r for r in ready if in_scope(r["number"]) and r["number"] not in planning and "infra" in r.get("labels", [])]
+cands = [r for r in ready if in_scope(r["number"]) and r["number"] not in planning and "infra" not in r.get("labels", [])]
 if cands and free and len(in_review) < maxpr:
     waves = sorted({r.get("wave") if r.get("wave") is not None else 10**6 for r in cands})
     low = waves[0]
@@ -226,6 +229,9 @@ if cands and free and len(in_review) < maxpr:
 elif cands and len(in_review) >= maxpr:
     notes.append(f"{len(in_review)} PRs in review (max_open_prs {maxpr}): no new developers")
 
+for r in infra[:1]:   # one infrastructure change at a time
+    actions.append({"action": "infra", "issue": r["number"]})
+
 for g in gates:
     if g["ok"] and g["tag"] not in draft_names and not any(a["action"] in ("gate_3", "deploy_finish") for a in actions):
         actions.append({"action": "deploy_release", "milestone": g["milestone"]})
@@ -233,7 +239,7 @@ for g in gates:
 # model per dispatch from config models: {role: model | {XS|S|M|story: model}}; an unknown
 # size gets the M model (the strongest one configured for that role)
 roles = {"qa": "qa", "lead_merge": "merge", "review": "review", "rebase": "rebase", "plan": "plan",
-         "dev": "dev", "deploy_release": "deploy", "deploy_finish": "deploy"}
+         "dev": "dev", "deploy_release": "deploy", "deploy_finish": "deploy", "infra": "infra"}
 for a in actions:
     m = models.get(roles.get(a["action"], ""))
     if isinstance(m, dict):
@@ -254,7 +260,7 @@ for a in [a for a in actions if a["action"] == "rebase"]:
     else:
         actions.remove(a); notes.append(f"rebase of PR #{a['pr']} waits for a free developer slot")
 lanes = {"deploy_finish": "deploy", "deploy_release": "deploy", "qa": "qa", "lead_merge": "pr",
-         "review": "pr", "rebase": "rebase", "plan": "plan", "dev": "dev"}
+         "review": "pr", "rebase": "rebase", "plan": "plan", "dev": "dev", "infra": "infra"}
 batch, used = [], set()
 first = next((a for a in actions if a["action"] not in ("notify_needs_human", "gate_3")), None)
 if first and first["action"] in blocking:

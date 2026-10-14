@@ -1,0 +1,32 @@
+# squad release gate (GATE 3). Copied to .github/workflows/release-gate.yml by the setup skill.
+#
+# Deploys are done by the DevOps role with the Railway CLI under the stakeholder's own
+# `railway login`. This workflow deploys nothing and needs no secrets: it only records the
+# stakeholder's production approval. After staging passed its smoke tests, DevOps runs
+#   gh workflow run release-gate.yml -f ref=<sha> -f release=<tag>
+# The "production" job waits for the required reviewers of the "production" GitHub
+# Environment. When the stakeholder approves, the job succeeds, and DevOps deploys exactly
+# that commit to production (railway.sh checks this run before deploying).
+name: release-gate
+run-name: release gate ${{ inputs.release }} ${{ inputs.ref }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Commit tested on staging
+        required: true
+      release:
+        description: Release tag
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  production:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - run: echo "Production deploy of ${{ inputs.ref }} (${{ inputs.release }}) approved."

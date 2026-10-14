@@ -40,7 +40,8 @@ LABELS='[
  {"name":"needs-rebase","color":"fef2c0","description":"PR conflicts with main; needs a rebase"},
  {"name":"needs-human","color":"000000","description":"Escalated to the stakeholder"},
  {"name":"blocked","color":"e4e669","description":"Cannot proceed until something else changes"},
- {"name":"quick","color":"c2e0c6","description":"Quick lane (/squad:fix): one small task without a story"}
+ {"name":"quick","color":"c2e0c6","description":"Quick lane (/squad:fix): one small task without a story"},
+ {"name":"infra","color":"5319e7","description":"Platform change done by DevOps with the Railway CLI (no PR)"}
 ]'
 
 cmd_labels() {

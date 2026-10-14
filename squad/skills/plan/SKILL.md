@@ -57,6 +57,11 @@ them with literal arguments, no shell variables. Rules: `references/conventions/
 - Each task body follows `task-template.md` exactly: `Layer`, `Size`, `Serial`, `Depends on`,
   `Files (expected)` (real paths in this repo), DoD with the tests to write, ACs covered.
 - `Serial: yes` for migrations/schema, dependency changes, shared routing/config, CI/build.
+- Platform work (a database, an environment variable, a service setting such as the
+  pre-deploy command, a domain) is an **infra task**: `Layer: infra`, label `infra`
+  (`gh issue edit <n> --add-label infra`), a DoD the DevOps role can verify on the platform,
+  and which environments it touches. DevOps does it with the Railway CLI, without a PR. Code
+  that needs it depends on it.
 - Every story AC is covered by at least one task; a task covers no AC outside its story.
 - Self-check before creating anything (write the table in your notes):
   `task | layer | size | est. lines/files | serial | depends on | ACs`.

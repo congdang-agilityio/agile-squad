@@ -27,7 +27,7 @@ flowchart LR
         DEV["💻 Developers ×N<br/>one task · own worktree<br/>TDD · small PR"]
         REV["🔍 Reviewer<br/>verdict comment<br/>ACs · tests · security · size"]
         QA["✅ QA<br/>verifies on main<br/>files bugs"]
-        OPS["🚀 DevOps<br/>staging · smoke tests<br/>production after GATE 3"]
+        OPS["🚀 DevOps · Railway CLI<br/>deploys · infra · logs<br/>production after your approval"]
         REP["📊 Reporter<br/>numbers from metrics.sh only"]
         BA -->|"stories (after GATE 2)"| TL
         TL -->|"tasks in waves"| DEV
@@ -49,7 +49,7 @@ flowchart LR
 | **Developers** | `squad:developer` (×N) | one task each in its own git worktree, port and test database; TDD; one small PR | push to `main`, work outside the task or the worktree |
 | **Reviewer** | `squad:reviewer` | checks the PR against the acceptance criteria, tests, security and size; posts `Verdict: PASS` or `CHANGES` | edit code, approve or merge |
 | **QA** | `squad:qa-tester` | verifies every criterion on the latest `main` with the full suites and the running app; files bugs as sub-issues | fix code, weaken a criterion |
-| **DevOps** | `squad:devops` | release notes, staging deploy and smoke tests, production after your approval, rollback path on failure | deploy from a laptop, touch secrets, approve production |
+| **DevOps** | `squad:devops` | runs Railway with the CLI under your own `railway login`: deploys staging and (after GATE 3) production, smoke tests, databases, variables and service settings (infra tasks), logs, rollback after your yes | see or set secrets, change production without your approval, approve GATE 3 |
 | **Reporter** | `squad:reporter` | progress reports where every number comes from `metrics.sh` | estimate or invent numbers |
 
 ## What you get
@@ -62,9 +62,13 @@ flowchart LR
 - **Real review and QA.** Every PR is reviewed against the acceptance criteria, security and
   size limits. QA verifies every item on the latest `main` with the full suites and the
   running app, and files bugs as sub-issues.
-- **Gated releases.** DevOps deploys a milestone to staging through GitHub Actions and smoke
-  tests it. The production job then waits for your approval in the GitHub Environment
-  (GATE 3).
+- **Gated releases.** DevOps deploys a milestone to staging with the Railway CLI and smoke
+  tests it. Production waits for your approval in a GitHub Environment (GATE 3); then DevOps
+  deploys exactly the commit that passed staging.
+- **A DevOps that runs the platform.** Databases, environment variables, service settings
+  (such as the pre-deploy migration command) and logs are handled by DevOps as `infra` tasks:
+  staging on its own, production after your explicit yes. No Railway token is stored anywhere:
+  the CLI uses your own login.
 - **A quick lane for small changes.** `/squad:fix "<what>"` turns one small request into one
   task and runs it through dev, review, merge and QA, without the BA and story gates.
 - **Cost control.** Small tasks run on cheaper models (config `models`), and each run stops
@@ -82,8 +86,8 @@ flowchart LR
 - Optional, for requirement files: `pdftotext` (poppler) and `pandoc` or `markitdown`
   (`ingest.sh` has a built-in fallback for .docx/.pptx/.xlsx).
 - The target project's own toolchain (for example Node and Docker for a local test database).
-- For deploys: a hosting platform reachable from GitHub Actions. The template uses Railway with
-  one project token per environment, stored as a GitHub Environment secret by you.
+- For deploys: the [Railway CLI](https://docs.railway.com/cli), logged in once on this
+  machine with `railway login` (OAuth in the browser). No tokens in GitHub or in the repo.
 
 ## Installation
 
@@ -117,8 +121,10 @@ Setup does the following:
 - creates the labels and writes `.squad/config.yml`;
 - turns on squash merges and branch protection on `main` (nobody pushes to `main`, admins
   included);
-- adds the deploy workflow and creates the `staging` and `production` GitHub Environments,
-  with you as the required reviewer of production;
+- connects Railway: checks the CLI and your login (`! railway login` if needed), picks or
+  creates the Railway project with `staging` and `production` environments;
+- adds the release-gate workflow (it deploys nothing and needs no secrets) and the
+  `production` GitHub Environment with you as the required reviewer (GATE 3);
 - ends with `/squad:doctor`, which checks all of the above and proposes fixes.
 
 Fill in the `commands` section (install, test, lint, e2e, build, start, services) in the
@@ -161,7 +167,8 @@ subagent instead of doing the work in the main session.
 |---|---|---|
 | GATE 1 | Requirements are clear | Sign-off in chat (recorded in `docs/requirements/<slug>/`) |
 | GATE 2 | Stories are drafted | Approve or comment in chat; then the epic and stories are created |
-| GATE 3 | Staging passed smoke tests | Approve or reject the `production` job on GitHub |
+| GATE 3 | Staging passed smoke tests | Approve or reject the `production` job of the release-gate run on GitHub |
+| Production change | An infra task or a rollback touches production | Say yes in chat; your words are recorded on the issue |
 
 The team never approves a gate for you, and it never treats silence as approval.
 
@@ -177,7 +184,7 @@ The team never approves a gate for you, and it never treats silence as approval.
 | `merge.require_ci` | merge only with green CI |
 | `models.<role>` | model per dispatch (`sonnet`, `opus`, `haiku`) for dev, review, qa (by task size `XS`/`S`/`M`, QA also `story`), rebase, merge, deploy, and `quick` (the Team Lead's `/squad:fix` decision) |
 | `budget.max_tokens_per_run` | `/squad:run` stops dispatching once its subagents reported this many tokens (approximate; default 2,000,000) |
-| `deploy.*` | `platform` (`railway` or `none`), workflow names, staging and production URLs, production environment |
+| `deploy.*` | `platform` (`railway` or `none`); `railway.project`, `railway.service`, `railway.environments`; `gate_workflow`; staging and production URLs |
 | `limits.*` | attempts before `needs-human`, story size, PR line/file limits per task size, files excluded from the size check |
 
 The `ids` block is written by setup; do not edit it by hand. If it is incomplete, run
@@ -194,6 +201,7 @@ repositories that have `.squad/config.yml` (elsewhere it does nothing):
 | Developers | writing files outside `.worktrees/<issue>/` |
 | BA | writing outside `docs/requirements/` |
 | Reporter | writing outside `.squad/reports/` |
+| every subagent | calling the `railway` CLI directly (only through `scripts/railway.sh`); changes through it are DevOps only |
 | Reviewer, QA, Team Lead, DevOps | writing or editing any file |
 
 The main session is not restricted beyond the first row, so you can still work in it yourself.
@@ -208,6 +216,8 @@ Start with `/squad:doctor`: it detects most of these and prints the fix.
 | `gh: … requires the project scope` | `gh auth refresh -h github.com -s project,workflow` |
 | Tasks jump to Done right after merge, skipping QA | A built-in project workflow ("Item closed") sets Status. Run `board.sh workflows --fix` (deletes it) |
 | `gh pr merge` is blocked in auto mode | Add the allow rule `Bash(gh pr merge:*)` (setup offers it) |
+| `not logged in to Railway` | Run `! railway login` once on this machine |
+| DevOps asks you to set a variable yourself | It is a secret (password, API key): run the `railway variable set … --stdin` command it gives you |
 | `squad guard: …` | The guard hook blocked a rule-breaking call; the message says what to do instead |
 | A PR is labeled `needs-split` | It is bigger than its task size. The Team Lead re-sizes or splits it. Add generated files (lock files, migration locks) to `limits.pr_size_exclude` |
 | An item is labeled `needs-human` | It failed `limits.max_attempts` times. Read its last comment, decide, then remove the label |
@@ -218,7 +228,7 @@ Start with `/squad:doctor`: it detects most of these and prints the fix.
 
 Scripts can be run by hand from the repository root for diagnosis. Each one prints its usage
 with `--help`: `next.sh` (what the PM would do now), `board.sh list <status>`, `waves.sh`,
-`pr-size.sh <pr>`, `release.sh gate "<milestone>"`, `metrics.sh --since <date>`, `doctor.sh`.
+`pr-size.sh <pr>`, `release.sh gate "<milestone>"`, `railway.sh status staging`, `metrics.sh --since <date>`, `doctor.sh`.
 
 ## Repository layout
 
@@ -230,8 +240,8 @@ squad/                            the plugin
 ├── agents/      ba-analyst, team-lead, developer, reviewer, qa-tester, devops, reporter
 ├── hooks/       hooks.json (guard)
 ├── references/  conventions per role, result statuses per role, templates, review checklist
-├── scripts/     board, issue, worktree, waves, pr, pr-size, release, metrics, next, ingest, doctor, guard
-├── templates/   squad.config.yml, deploy.yml (GitHub Actions → Railway)
+├── scripts/     board, issue, worktree, waves, pr, pr-size, release, railway, metrics, next, ingest, doctor, guard
+├── templates/   squad.config.yml, release-gate.yml (GATE 3 approval, no secrets)
 └── evals/       behavior evals (claude plugin eval)
 tests/                            script tests (tests/run.sh) and model comparisons
 docs/                             design decisions and test logs of every build phase
@@ -255,8 +265,11 @@ docs/                             design decisions and test logs of every build 
 - No automatic production rollback. The P0 bug names the previous tag to redeploy.
 - The token budget counts what subagents report; it is a guard, not a bill. For a hard dollar
   cap on unattended runs use `claude -p --max-budget-usd <n> "/squad:run …"`.
-- DevOps has no access to the hosting platform: databases, platform settings and logs are
-  set up or fetched by you.
+- Railway is the only hosting platform supported; `scripts/railway.sh` is the adapter.
+- Secrets (passwords, API keys) are never handled by an agent: you set them with the command
+  DevOps gives you.
+- Deploys run on this machine under your Railway login, so the machine running squad must
+  be logged in.
 - One GitHub account for all roles. Reviews are verdict comments (GitHub does not let an
   account approve its own PR), and the Team Lead merges.
 - Tested end to end on one Node/Next.js project; listings are capped (projects 100, open PRs

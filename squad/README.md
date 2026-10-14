@@ -12,7 +12,7 @@ Quick start, in a clone of your repository:
 
 | Command | What it does |
 |---|---|
-| `/squad:setup` (or `/squad:setup quick`) | board, labels, config, branch protection, deploy workflow (quick: no deploys) |
+| `/squad:setup` (or `/squad:setup quick`) | board, labels, config, branch protection, Railway login and project, GATE 3 workflow (quick: no deploys) |
 | `/squad:ba` | requirements → clarifying questions → GATE 1 → stories → GATE 2 |
 | `/squad:run scope=#<epic>` | the team works: plan, develop in parallel, review, merge, QA, deploy to GATE 3 |
 | `/squad:fix "<small change>"` | one small task without the requirement flow |

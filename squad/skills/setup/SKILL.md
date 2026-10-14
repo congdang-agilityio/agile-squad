@@ -81,15 +81,25 @@ Runs in the **main session** (PM). No subagent: it needs a few stakeholder decis
    the app with them on `$PORT`) in `.squad/config.yml`. Show
    them to the stakeholder and write them after confirmation. Leave `e2e` empty if there is none.
 
-8. **Deploy workflow.** If `.github/workflows/` has no deploy workflow, copy
-   `${CLAUDE_PLUGIN_ROOT}/templates/deploy.yml` to `.github/workflows/deploy.yml` (Railway by
-   default) and record `deploy:` in the config. Create GitHub Environments `staging` and
-   `production`; `production` gets the stakeholder as required reviewer (GATE 3):
-   `gh api -X PUT repos/<owner>/<repo>/environments/production --input -` with
-   `{"reviewers":[{"type":"User","id":<id>}]}`. Set the variable `APP_URL` per environment
-   (`gh variable set APP_URL --env staging --body <url>`). Ask the stakeholder to create one
-   Railway project token per Railway environment and store it themselves:
-   `gh secret set RAILWAY_TOKEN --env staging` (and `--env production`). Never handle the token.
+8. **Deploys (Railway, no tokens).** DevOps uses the Railway CLI under the stakeholder's own
+   login; GitHub holds no Railway secret.
+   - CLI: `railway --version`; missing → ask the stakeholder to install it
+     (https://docs.railway.com/cli). Login: `railway whoami`; not logged in → ask them to run
+     `! railway login` (OAuth in the browser).
+   - Project: `railway list --json`; ask which project to use, or (after a yes) create one:
+     `railway init --name <repo>`, `railway environment new staging`, then the app service
+     (`railway add --service web`). Production uses Railway's default `production`
+     environment. Write `deploy.railway.project` (id), `service` and `environments`.
+   - Check: `"${CLAUDE_PLUGIN_ROOT}/scripts/railway.sh" check` lists both environments.
+   - GATE 3: copy `${CLAUDE_PLUGIN_ROOT}/templates/release-gate.yml` to
+     `.github/workflows/release-gate.yml` (it deploys nothing and needs no secrets) and create
+     the GitHub Environment `production` with the stakeholder as required reviewer:
+     `gh api -X PUT repos/<owner>/<repo>/environments/production --input -` with
+     `{"reviewers":[{"type":"User","id":<id>}]}`.
+   - URLs: `railway.sh domain staging` (and `production`, with the stakeholder's yes) returns
+     or generates the public URL; write `deploy.staging_url` and `production_url`.
+   - Platform settings the app needs (database, pre-deploy migration command, variables) are
+     not set up here: the Team Lead plans them as `infra` tasks for DevOps.
 
 9. **CLAUDE.md.** Add (or update) this section in the repo's `CLAUDE.md`:
    ```markdown
@@ -127,5 +137,5 @@ must do by hand.
 
 - Delete project workflows on an existing board without the stakeholder's explicit yes.
 - Edit ids in the config by hand; re-run `bootstrap` instead.
-- Store tokens or deploy secrets in the repository.
+- Store tokens or deploy secrets in the repository or in GitHub; handle Railway secrets.
 - Use a GitHub account other than the one the stakeholder confirmed.

@@ -33,8 +33,7 @@ are unsure, let the Team Lead decide (step 2).
      (verbatim). Otherwise offer the `ba` skill.
 3. **Run.** Follow the `run` skill with `scope=#<task>` (default `max-steps=6`): developer →
    review → merge → QA. The `quick` flag and the cheaper models come from `next.sh`.
-4. **Release** (skip when `deploy.platform` is `none`). When the task is `Done`, it is already on staging if the deploy workflow
-   deploys `main`. Ask whether to ship it to production now and under which milestone (an
+4. **Release** (skip when `deploy.platform` is `none`). When the task is `Done`, ask whether to ship it to production now and under which milestone (an
    open one, or a patch such as `v0.3.1`); on an answer dispatch `squad:team-lead` with
    `mode=milestone milestone=<title> stories=#<task>`, then continue with the `run` skill
    until GATE 3. Without an answer, it stays unreleased and `next.sh` keeps listing it.

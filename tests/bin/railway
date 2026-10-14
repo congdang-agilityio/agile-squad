@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Fake Railway CLI for squad tests: the test defines `respond` in $RW_STUB; calls go to $RW_LOG.
+set -uo pipefail
+echo "railway $*" >> "${RW_LOG:-/dev/null}"
+# shellcheck source=/dev/null
+source "${RW_STUB:?RW_STUB not set}"
+respond "$@"

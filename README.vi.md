@@ -27,7 +27,7 @@ flowchart LR
         DEV["💻 Developer ×N<br/>mỗi người một task · worktree riêng<br/>TDD · PR nhỏ"]
         REV["🔍 Reviewer<br/>kết luận bằng comment<br/>AC · test · bảo mật · kích thước"]
         QA["✅ QA<br/>kiểm tra trên main<br/>tạo bug"]
-        OPS["🚀 DevOps<br/>staging · smoke test<br/>production sau GATE 3"]
+        OPS["🚀 DevOps · Railway CLI<br/>deploy · hạ tầng · log<br/>production sau khi bạn duyệt"]
         REP["📊 Reporter<br/>chỉ dùng số liệu từ metrics.sh"]
         BA -->|"story (sau GATE 2)"| TL
         TL -->|"task theo wave"| DEV
@@ -49,7 +49,7 @@ flowchart LR
 | **Developer** | `squad:developer` (×N) | mỗi người một task trong git worktree, port và database test riêng; làm theo TDD; một PR nhỏ | push lên `main`, làm ngoài phạm vi task hoặc ngoài worktree |
 | **Reviewer** | `squad:reviewer` | đối chiếu PR với tiêu chí chấp nhận, test, bảo mật và kích thước; đăng `Verdict: PASS` hoặc `CHANGES` | sửa code, approve hay merge |
 | **QA** | `squad:qa-tester` | kiểm tra từng tiêu chí trên `main` mới nhất bằng toàn bộ bộ test và ứng dụng đang chạy; tạo bug dạng sub-issue | sửa code, nới lỏng tiêu chí |
-| **DevOps** | `squad:devops` | release notes, deploy staging và smoke test, lên production sau khi bạn duyệt, chuẩn bị đường rollback khi lỗi | deploy từ máy cá nhân, động vào secret, tự duyệt production |
+| **DevOps** | `squad:devops` | vận hành Railway bằng CLI dưới chính phiên `railway login` của bạn: deploy staging và (sau GATE 3) production, smoke test, database, biến môi trường và cài đặt service (infra task), đọc log, rollback sau khi bạn đồng ý | xem hay đặt secret, đổi production khi chưa được bạn duyệt, tự duyệt GATE 3 |
 | **Reporter** | `squad:reporter` | báo cáo tiến độ, mọi con số lấy từ `metrics.sh` | ước lượng hay bịa số liệu |
 
 ## Bạn nhận được gì
@@ -62,8 +62,13 @@ flowchart LR
 - **Review và QA thật sự.** Mọi PR đều được review theo tiêu chí chấp nhận, bảo mật và giới
   hạn kích thước. QA kiểm tra từng hạng mục trên `main` mới nhất bằng toàn bộ bộ test và ứng
   dụng đang chạy, rồi tạo bug dạng sub-issue.
-- **Phát hành có kiểm soát.** DevOps deploy một milestone lên staging qua GitHub Actions và
-  chạy smoke test. Job production sau đó chờ bạn duyệt trong GitHub Environment (GATE 3).
+- **Phát hành có kiểm soát.** DevOps deploy một milestone lên staging bằng Railway CLI và chạy
+  smoke test. Production chờ bạn duyệt trong một GitHub Environment (GATE 3); sau đó DevOps
+  deploy đúng commit đã qua staging.
+- **DevOps vận hành được nền tảng.** Database, biến môi trường, cài đặt service (ví dụ lệnh
+  migration chạy trước khi deploy) và log do DevOps xử lý dưới dạng `infra` task: staging tự
+  làm, production chỉ làm sau khi bạn đồng ý rõ ràng. Không có Railway token nào được lưu ở
+  đâu cả: CLI dùng chính phiên đăng nhập của bạn.
 - **Lane nhanh cho thay đổi nhỏ.** `/squad:fix "<nội dung>"` biến một yêu cầu nhỏ thành một
   task, chạy qua dev, review, merge và QA, không cần BA và các gate về story.
 - **Kiểm soát chi phí.** Task nhỏ chạy bằng model rẻ hơn (cấu hình `models`), và mỗi lần chạy
@@ -84,8 +89,8 @@ flowchart LR
 - Tuỳ chọn, để đọc file yêu cầu: `pdftotext` (poppler) và `pandoc` hoặc `markitdown`
   (`ingest.sh` có sẵn cách xử lý dự phòng cho .docx/.pptx/.xlsx).
 - Bộ công cụ riêng của dự án đích (ví dụ Node và Docker cho database test cục bộ).
-- Để deploy: một nền tảng hosting mà GitHub Actions truy cập được. Template mặc định dùng
-  Railway, mỗi môi trường một project token, do bạn tự lưu làm secret của GitHub Environment.
+- Để deploy: [Railway CLI](https://docs.railway.com/cli), đăng nhập một lần trên máy bằng
+  `railway login` (OAuth qua trình duyệt). Không cần token trong GitHub hay trong repo.
 
 ## Cài đặt
 
@@ -118,8 +123,10 @@ Setup sẽ:
   Size, Wave, Agent, Attempts;
 - tạo label và ghi file `.squad/config.yml`;
 - bật squash merge và branch protection cho `main` (không ai được push lên `main`, kể cả admin);
-- thêm workflow deploy, tạo GitHub Environment `staging` và `production`, với bạn là người
-  duyệt bắt buộc cho production;
+- kết nối Railway: kiểm tra CLI và phiên đăng nhập (chạy `! railway login` nếu cần), chọn
+  hoặc tạo Railway project với hai môi trường `staging` và `production`;
+- thêm workflow release-gate (không deploy gì, không cần secret) và GitHub Environment
+  `production` với bạn là người duyệt bắt buộc (GATE 3);
 - kết thúc bằng `/squad:doctor` để kiểm tra toàn bộ các bước trên và đề xuất cách sửa.
 
 Điền phần `commands` (install, test, lint, e2e, build, start, services) trong file cấu hình.
@@ -162,7 +169,8 @@ trong phiên chính.
 |---|---|---|
 | GATE 1 | Yêu cầu đã rõ ràng | Ký duyệt trong chat (ghi lại trong `docs/requirements/<slug>/`) |
 | GATE 2 | Story đã được soạn | Duyệt hoặc góp ý trong chat; sau đó epic và story được tạo |
-| GATE 3 | Staging đã qua smoke test | Duyệt hoặc từ chối job `production` trên GitHub |
+| GATE 3 | Staging đã qua smoke test | Duyệt hoặc từ chối job `production` của lần chạy release-gate trên GitHub |
+| Thay đổi production | Một infra task hoặc rollback đụng tới production | Đồng ý trong chat; câu trả lời của bạn được ghi lại trên issue |
 
 Đội không bao giờ tự duyệt gate thay bạn, và không bao giờ coi im lặng là đồng ý.
 
@@ -178,7 +186,7 @@ trong phiên chính.
 | `merge.require_ci` | chỉ merge khi CI xanh |
 | `models.<vai trò>` | model cho mỗi lần giao việc (`sonnet`, `opus`, `haiku`) với dev, review, qa (theo cỡ task `XS`/`S`/`M`, QA có thêm `story`), rebase, merge, deploy, và `quick` (quyết định của Team Lead cho `/squad:fix`) |
 | `budget.max_tokens_per_run` | `/squad:run` ngừng giao việc mới khi tổng token các subagent báo về chạm mức này (ước lượng; mặc định 2.000.000) |
-| `deploy.*` | `platform` (`railway` hoặc `none`), tên workflow, URL staging và production, tên environment production |
+| `deploy.*` | `platform` (`railway` hoặc `none`); `railway.project`, `railway.service`, `railway.environments`; `gate_workflow`; URL staging và production |
 | `limits.*` | số lần thử trước khi gắn `needs-human`, cỡ story, giới hạn dòng/file của PR theo cỡ task, các file không tính vào kích thước |
 
 Khối `ids` do setup ghi; đừng sửa tay. Nếu bị thiếu, chạy lại
@@ -195,6 +203,7 @@ repository có `.squad/config.yml` (ở nơi khác hook không làm gì):
 | Developer | ghi file ngoài `.worktrees/<issue>/` |
 | BA | ghi file ngoài `docs/requirements/` |
 | Reporter | ghi file ngoài `.squad/reports/` |
+| mọi subagent | gọi thẳng `railway` CLI (chỉ được qua `scripts/railway.sh`); thay đổi qua script này chỉ dành cho DevOps |
 | Reviewer, QA, Team Lead, DevOps | ghi hoặc sửa bất kỳ file nào |
 
 Phiên chính chỉ chịu các giới hạn ở dòng đầu, nên bạn vẫn có thể tự làm việc trong đó.
@@ -210,6 +219,8 @@ sửa.
 | `gh: … requires the project scope` | `gh auth refresh -h github.com -s project,workflow` |
 | Task nhảy thẳng sang Done ngay sau khi merge, bỏ qua QA | Một workflow có sẵn của project ("Item closed") tự đổi Status. Chạy `board.sh workflows --fix` (xoá nó) |
 | `gh pr merge` bị chặn ở chế độ auto | Thêm allow rule `Bash(gh pr merge:*)` (setup có đề nghị) |
+| `not logged in to Railway` | Chạy `! railway login` một lần trên máy này |
+| DevOps nhờ bạn tự đặt một biến | Đó là secret (mật khẩu, API key): chạy lệnh `railway variable set … --stdin` mà DevOps đưa |
 | `squad guard: …` | Hook bảo vệ đã chặn một lệnh vi phạm quy tắc; thông báo cho biết nên làm gì thay thế |
 | PR bị gắn `needs-split` | PR lớn hơn cỡ của task. Team Lead đổi cỡ hoặc chia nhỏ. Thêm các file sinh tự động (lock file, migration lock) vào `limits.pr_size_exclude` |
 | Một mục bị gắn `needs-human` | Đã thất bại `limits.max_attempts` lần. Đọc comment cuối, quyết định, rồi gỡ label |
@@ -220,7 +231,7 @@ sửa.
 
 Có thể tự chạy các script từ thư mục gốc của repository để chẩn đoán. Mỗi script in hướng dẫn
 với `--help`: `next.sh` (PM sẽ làm gì lúc này), `board.sh list <status>`, `waves.sh`,
-`pr-size.sh <pr>`, `release.sh gate "<milestone>"`, `metrics.sh --since <ngày>`, `doctor.sh`.
+`pr-size.sh <pr>`, `release.sh gate "<milestone>"`, `railway.sh status staging`, `metrics.sh --since <ngày>`, `doctor.sh`.
 
 ## Cấu trúc repository
 
@@ -232,8 +243,8 @@ squad/                            plugin
 ├── agents/      ba-analyst, team-lead, developer, reviewer, qa-tester, devops, reporter
 ├── hooks/       hooks.json (guard)
 ├── references/  quy ước theo vai trò, trạng thái kết quả theo vai trò, template, checklist review
-├── scripts/     board, issue, worktree, waves, pr, pr-size, release, metrics, next, ingest, doctor, guard
-├── templates/   squad.config.yml, deploy.yml (GitHub Actions → Railway)
+├── scripts/     board, issue, worktree, waves, pr, pr-size, release, railway, metrics, next, ingest, doctor, guard
+├── templates/   squad.config.yml, release-gate.yml (duyệt GATE 3, không secret)
 └── evals/       eval hành vi (claude plugin eval)
 tests/                            test cho script (tests/run.sh) và so sánh model
 docs/                             các quyết định thiết kế và log test của từng giai đoạn
@@ -257,8 +268,10 @@ docs/                             các quyết định thiết kế và log test
 - Ngân sách token tính theo số liệu các subagent báo về; đó là chốt chặn, không phải hoá đơn.
   Muốn giới hạn cứng theo đô la khi chạy không giám sát, dùng
   `claude -p --max-budget-usd <n> "/squad:run …"`.
-- DevOps không có quyền truy cập nền tảng hosting: database, cài đặt nền tảng và log do bạn tự
-  thiết lập hoặc lấy.
+- Hiện chỉ hỗ trợ Railway; `scripts/railway.sh` là lớp adapter.
+- Secret (mật khẩu, API key) không bao giờ qua tay agent: bạn tự đặt bằng lệnh DevOps đưa ra.
+- Deploy chạy trên máy này dưới phiên đăng nhập Railway của bạn, nên máy chạy squad phải đăng
+  nhập sẵn.
 - Một tài khoản GitHub cho mọi vai trò. Review là comment kết luận (GitHub không cho một tài
   khoản tự approve PR của mình), và Team Lead là người merge.
 - Đã kiểm thử đầy đủ trên một dự án Node/Next.js; số lượng liệt kê có giới hạn (project 100,

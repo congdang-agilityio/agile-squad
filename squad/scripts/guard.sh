@@ -9,6 +9,8 @@
 # Rules:
 #   everyone           no `git push` to main/master (explicit, or a bare push from main);
 #                      no `gh pr merge --admin`; no `gh pr review --approve`
+#   squad:* agents     Railway only through scripts/railway.sh, never the railway CLI itself;
+#                      only squad:devops may run railway.sh changes (others: read commands)
 #   squad:developer    Write/Edit only inside <repo>/.worktrees/<issue>/
 #   squad:ba-analyst   Write/Edit only inside <repo>/docs/requirements/
 #   squad:reporter     Write/Edit only inside <repo>/.squad/reports/
@@ -48,6 +50,17 @@ if [[ "$tool" == Bash ]]; then
         if ((${#args[@]} <= 1)) || [[ " ${args[*]:1} " =~ [[:space:]]\+?HEAD(:|[[:space:]]) ]]; then
           block "a push of the current branch ($branch) would update main; push the task branch and open a PR"
         fi
+      fi
+    fi
+    if [[ "$agent" == squad:* ]]; then
+      # Railway only through scripts/railway.sh (no secrets printed, production needs approval)
+      if [[ "$part" =~ ^(npx[[:space:]]+[^[:space:]]*@railway/cli[^[:space:]]*|railway)([[:space:]]|$) ]]; then
+        block "use scripts/railway.sh for Railway, not the railway CLI directly"
+      fi
+      if [[ "$part" =~ railway\.sh[\"\']?[[:space:]]+([a-z-]+) && "$agent" != squad:devops ]]; then
+        case "${BASH_REMATCH[1]}" in check|status|logs|errors|deployments|vars|help|-h|--help) ;;
+          *) block "only DevOps changes Railway; ${agent#squad:} may use railway.sh check/status/logs/errors/deployments/vars" ;;
+        esac
       fi
     fi
     if [[ "$part" =~ ^gh[[:space:]]+pr[[:space:]]+merge([[:space:]]|$) && "$part" =~ [[:space:]]--admin([[:space:]]|$) ]]; then

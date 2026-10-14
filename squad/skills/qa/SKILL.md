@@ -34,6 +34,8 @@ arguments. Template: `references/bug-template.md`. Rules: `references/convention
    e2e. Unit tests passing is not enough on its own. For each criterion record: how it was
    checked, the exact command or test, the observed result.
 3. Quick regression: the neighbouring features (same page, endpoint group or module).
+   For an `infra` task or a failure on staging, read the platform with
+   `railway.sh status staging` and `railway.sh logs staging --lines 200` (read-only).
    **Quick-lane task** (`quick=true`, label `quick`): check its DoD and `Request` on
    main with the full suites; start the app only when a DoD item is visible in the UI or API;
    regression only for the files it changed. It has no story: skip the **Story** step under "Decide".

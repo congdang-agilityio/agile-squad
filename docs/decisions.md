@@ -120,3 +120,20 @@ and a rewave that file overlaps cannot improve (the PM rewaves at most once per 
 - Behavior evals (`squad/evals/`, `claude plugin eval`) cover routing and gate discipline;
   they run on demand because they cost API credits. Script tests run in CI on every push.
 - `deploy.platform: none` and `/squad:setup quick` let a team start without a hosting setup.
+
+## D-16 (2026-10-15): DevOps operates Railway with the CLI; no tokens anywhere
+Replaces the GitHub Actions deploy (D-3 era): DevOps could not provision a database, set the
+pre-deploy command or read logs, so the stakeholder did it by hand (phase 7, v0.2.0), and
+GitHub held one Railway token per environment.
+- The Railway CLI runs under the stakeholder's own `railway login` on the machine running
+  squad. `scripts/railway.sh` is the only entry point (enforced by the guard hook): it prints
+  variable names, never values; refuses secret-looking variables (the stakeholder sets those);
+  and requires approval for every production change, recorded on the issue.
+- GATE 3 stays a GitHub approval for its audit trail and because it cannot be forged by the
+  agents: `release-gate.yml` has one job behind the `production` Environment, deploys nothing
+  and needs no secrets. `railway.sh deploy production --gate-run <id>` checks that the run
+  approved that commit.
+- Deploys use `railway up` from a clean worktree at the tested commit, so production gets
+  exactly what staging ran.
+- Platform work is planned as `infra` tasks; staging changes are autonomous, production
+  changes need the stakeholder's explicit yes.

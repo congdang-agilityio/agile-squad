@@ -21,7 +21,7 @@
 #                      listed in "excluded", never estimated
 #   parallelism        max number of tasks being developed at the same time ("Started by"
 #                      → PR opened), and the intervals used
-#   deployments        deploy workflow runs (by conclusion) and published releases
+#   deployments        release-gate runs (GATE 3 decisions, by conclusion) and published releases
 # Config: $SQUAD_CONFIG or .squad/config.yml in the main worktree.
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -92,7 +92,7 @@ done | jq -s 'map({(.pr | tostring): {lines, files}}) | add // {}' > "$T/sizes.j
 # ---- bugs, deploy runs, releases
 gh issue list --repo "$OWNER/$REPO" --label type:bug --state all --limit 500 \
   --json number,title,state,createdAt,closedAt > "$T/bugs.json"
-wf="$(cfg '.deploy.staging_workflow')"; wf="${wf:-deploy.yml}"
+wf="$(cfg '.deploy.gate_workflow')"; wf="${wf:-release-gate.yml}"
 gh run list --repo "$OWNER/$REPO" --workflow "$wf" --limit 200 \
   --json databaseId,event,conclusion,createdAt,headSha 2>/dev/null > "$T/runs.json" || echo '[]' > "$T/runs.json"
 gh release list --repo "$OWNER/$REPO" --limit 100 --json tagName,publishedAt,isDraft > "$T/releases.json"

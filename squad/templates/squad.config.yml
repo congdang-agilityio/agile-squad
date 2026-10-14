@@ -33,6 +33,7 @@ models:                           # model per dispatch (sonnet | opus | haiku), 
   rebase: sonnet
   merge: sonnet
   deploy: sonnet
+  infra: opus                     # DevOps changing infrastructure (infra tasks, rollbacks)
   quick: sonnet                   # Team Lead's quick-lane decision (/squad:fix): 10/10 like Opus
                                   # at ~1/4 of the cost (tests/model-eval/quick-mode)
 budget:
@@ -44,8 +45,12 @@ merge:
 deploy:
   platform: railway               # railway | none (no deploys: Done is the end of the flow;
                                   # /squad:setup quick sets none, setup can add deploys later)
-  staging_workflow: deploy.yml      # from templates/deploy.yml: staging on push to main,
-                                    # production job behind GitHub Environment approval
+  railway:                        # DevOps deploys and manages Railway with the Railway CLI,
+                                  # logged in as the stakeholder (`railway login`): no tokens
+    project: ""                   # Railway project id (setup fills it)
+    service: web                  # the app's service
+    environments: { staging: staging, production: production }   # squad env -> Railway env
+  gate_workflow: release-gate.yml # from templates/release-gate.yml: records GATE 3 approval only
   ci_workflow: ci.yml               # must be green on main before a release
   staging_url: https://staging.example.com
   production_url: https://example.com

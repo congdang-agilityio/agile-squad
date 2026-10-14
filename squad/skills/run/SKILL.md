@@ -47,6 +47,7 @@ small tasks, from config `models`); without it, use the agent's default.
    | `plan` | `squad:team-lead` with `mode=plan stories=<…> tasks=<…>`. |
    | `dev` (batch) | One `squad:developer` per action **in parallel** (several Agent calls in one message): `mode=<mode> issue=<n> slot=<slot>` (plus `pr=<n>` for rework). |
    | `deploy_release` | `squad:devops` with `mode=release milestone=<title>`. |
+   | `infra` | `squad:devops` with `mode=infra issue=<n>` (platform change with the Railway CLI). |
    | *(no actions)* | Run the `report` skill, then stop. |
 3. Read each result block. Follow its `next` only through the next `next.sh` call; the board
    is the truth. Special results:
@@ -57,6 +58,17 @@ small tasks, from config `models`); without it, use the agent's default.
      present it at GATE 2. After approval and publishing, close the original story
      (`gh issue close <n> --reason "not planned"`, comment the new story numbers).
    - `staging_ok_awaiting_approval`: GATE 3, as above; continue with the other lanes.
+   - `needs_approval` (infra) or `rollback_proposed`: show the stakeholder the exact plan
+     (environment, commands, the deployment to return to) and ask for an explicit yes. On a
+     yes, record their words on the issue and dispatch `squad:devops` with `mode=infra
+     issue=<n> approved="<their words>"` or `mode=rollback deployment=<id>
+     approved="<their words>" issue=<bug>`. Never approve a production change yourself.
+   - `smoke_failed` or `bugs_filed` (DevOps found errors in a deploy or in the logs): tell
+     the stakeholder which bugs were filed, their priority and the environment; the bugs are
+     planned like any other. After a release, offer to watch production:
+     `/loop 6h /squad:deploy health` runs `mode=health` periodically.
+   - `blocked` from DevOps with a command for the stakeholder (`! railway login`, or
+     `! railway variable set KEY --stdin …` for a secret): give them the command verbatim.
    - A result that contradicts the board (e.g. "merged" but the PR is open): re-run
      `next.sh` and dispatch again once; if it repeats, tell the stakeholder.
 4. **Budget.** Each Agent result carries usage metadata from Claude Code

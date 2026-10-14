@@ -6,7 +6,8 @@
 #
 # Checks tools, the gh login and token scopes, the config and its board ids, the board and
 # its fields, labels, conflicting project workflows, repository merge settings and branch
-# protection, the deploy workflow and GitHub Environments, .gitignore, the gh pr merge
+# protection, the release-gate workflow and the production GitHub Environment, the Railway
+# CLI login and project, .gitignore, the gh pr merge
 # permission rule, and leftover worktrees. --offline skips every check that calls GitHub.
 # Output JSON: {ok, fails, warns, checks: [{check, status: ok|warn|fail, detail, fix}]}.
 # Exit: 0 when nothing fails (warnings allowed), 1 when a check fails.
@@ -83,11 +84,11 @@ if [[ -n "$rule" ]]; then add merge_permission ok "Bash(gh pr merge:*) allowed i
 else add merge_permission warn "no Bash(gh pr merge:*) allow rule: auto mode blocks the Team Lead's merge" \
   'add "Bash(gh pr merge:*)" to permissions.allow in .claude/settings.json'; fi
 
-wf="$(cfg .deploy.staging_workflow)"; wf="${wf:-deploy.yml}"
+wf="$(cfg .deploy.gate_workflow)"; wf="${wf:-release-gate.yml}"
 deploys=1; [[ "$(cfg .deploy.platform)" == none ]] && deploys=0
 if [[ "$deploys" == 0 ]]; then add deploy_workflow ok "deploys are off (deploy.platform: none)"
 elif [[ -f "$root/.github/workflows/$wf" ]]; then add deploy_workflow ok ".github/workflows/$wf"
-else add deploy_workflow warn ".github/workflows/$wf not found: releases cannot deploy" "copy templates/deploy.yml (setup step 8)"; fi
+else add deploy_workflow warn ".github/workflows/$wf not found: no GATE 3 approval step" "copy templates/release-gate.yml (setup step 8)"; fi
 
 stale=()
 while read -r wt; do
@@ -130,7 +131,7 @@ if [[ -n "$PROJECT_ID" ]]; then
 fi
 
 if [[ -n "$OWNER" && -n "$REPO" ]]; then
-  want="$(jq -r '.[]' <<<'["type:epic","type:story","type:task","type:bug","type:report","qa:failed","review:changes","review:passed","needs-split","needs-rebase","needs-human","blocked","quick"]')"
+  want="$(jq -r '.[]' <<<'["type:epic","type:story","type:task","type:bug","type:report","qa:failed","review:changes","review:passed","needs-split","needs-rebase","needs-human","blocked","quick","infra"]')"
   got="$(gh label list --repo "$OWNER/$REPO" --limit 200 --json name -q '.[].name' 2>/dev/null || true)"
   lbl=(); while read -r l; do grep -qxF "$l" <<<"$got" || lbl+=("$l"); done <<<"$want"
   if ((${#lbl[@]})); then add labels fail "missing labels: ${lbl[*]}" "issue.sh labels"
@@ -147,17 +148,26 @@ if [[ -n "$OWNER" && -n "$REPO" ]]; then
   envs="$(gh api "repos/$OWNER/$REPO/environments" --jq '[.environments[] | {name, reviewers: ([.protection_rules[]? | select(.type == "required_reviewers")] | length)}]' 2>/dev/null || echo '[]')"
   pe="$(cfg .deploy.production_environment)"; pe="${pe:-production}"
   [[ "$deploys" == 1 ]] || pe=""
-  for e in ${pe:+staging "$pe"}; do
+  for e in ${pe:+"$pe"}; do   # only the GATE 3 environment: deploys need no GitHub secrets
     if ! jq -e --arg e "$e" '.[] | select(.name == $e)' >/dev/null <<<"$envs"; then
-      add "environment:$e" warn "GitHub Environment $e is missing" "setup step 8"; continue
-    fi
-    sec="$(gh secret list --repo "$OWNER/$REPO" --env "$e" --json name -q '.[].name' 2>/dev/null || true)"
-    if [[ "$e" == "$pe" && "$(jq -r --arg e "$e" '.[] | select(.name == $e) | .reviewers' <<<"$envs")" == 0 ]]; then
-      add "environment:$e" fail "no required reviewer: production would deploy without GATE 3" "setup step 8 (required reviewer = the stakeholder)"
-    elif [[ "$(cfg .deploy.platform)" == railway ]] && ! grep -qx RAILWAY_TOKEN <<<"$sec"; then
-      add "environment:$e" warn "secret RAILWAY_TOKEN is not set" "the stakeholder runs: gh secret set RAILWAY_TOKEN --env $e"
-    else add "environment:$e" ok "exists$([[ "$e" == "$pe" ]] && echo ", with a required reviewer")"; fi
+      add "environment:$e" fail "GitHub Environment $e is missing: no GATE 3" "setup step 8"
+    elif [[ "$(jq -r --arg e "$e" '.[] | select(.name == $e) | .reviewers' <<<"$envs")" == 0 ]]; then
+      add "environment:$e" fail "no required reviewer: GATE 3 would pass without the stakeholder" "setup step 8 (required reviewer = the stakeholder)"
+    else add "environment:$e" ok "exists, with a required reviewer"; fi
   done
+
+  if [[ "$deploys" == 1 && "$(cfg .deploy.platform)" == railway ]]; then
+    if rw="$("$SQUAD_SCRIPTS/railway.sh" check 2>&1)"; then
+      add railway ok "$(jq -r '"\(.user) → project \(.project), envs: \([.environments[].name] | join(", "))"' <<<"$rw")"
+    else
+      case "$rw" in
+        *"not found"*) add railway fail "Railway CLI is not installed" "install it: https://docs.railway.com/cli" ;;
+        *"not logged in"*) add railway fail "not logged in to Railway" "the stakeholder runs:  ! railway login" ;;
+        *"is empty"*) add railway fail "deploy.railway.project is not set" "setup step 8 (pick or create the Railway project)" ;;
+        *) add railway fail "${rw##*error: }" "check deploy.railway.* in the config" ;;
+      esac
+    fi
+  fi
 
   if ((${#stale[@]})); then
     old=()

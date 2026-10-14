@@ -1,6 +1,6 @@
 ---
 name: doctor
-description: "Diagnose why squad cannot run in this repository: tools, gh login and token scopes, .squad/config.yml and its board ids, board fields and Status columns, labels, conflicting project workflows, merge settings, branch protection, deploy workflow, GitHub Environments and secrets, the gh pr merge permission rule and leftover worktrees. Read-only; proposes each fix and applies it only after the stakeholder agrees. Use when a squad script fails, after a machine restart or a fresh clone, before the first run, or when the stakeholder asks whether squad is set up correctly."
+description: "Diagnose why squad cannot run in this repository: tools, gh login and token scopes, .squad/config.yml and its board ids, board fields and Status columns, labels, conflicting project workflows, merge settings, branch protection, release-gate workflow, the production GitHub Environment, the Railway CLI login and project, the gh pr merge permission rule and leftover worktrees. Read-only; proposes each fix and applies it only after the stakeholder agrees. Use when a squad script fails, after a machine restart or a fresh clone, before the first run, or when the stakeholder asks whether squad is set up correctly."
 ---
 
 # squad: doctor
@@ -29,7 +29,7 @@ Runs in the **main session** (PM). No subagent: it only reads, then asks.
    | `merge_permission` | add `"Bash(gh pr merge:*)"` to `.claude/settings.json` | PM, after yes |
    | `gitignore` | append the missing lines | PM |
    | `merge_settings`, `branch_protection`, `environment:*`, `deploy_workflow` | `setup` skill steps 5 and 8 | PM |
-   | secret `RAILWAY_TOKEN` | `gh secret set RAILWAY_TOKEN --env <env>` | stakeholder (never the PM) |
+   | `railway` | install the Railway CLI; `! railway login` (OAuth); set `deploy.railway.project` (setup step 8) | stakeholder logs in; PM writes the config |
    | `worktrees` | `worktree.sh clean <issue> --delete-branch --pr-merged` | PM |
    | `commands` | propose values from the stack (setup step 7), write after yes | PM |
 

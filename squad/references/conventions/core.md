@@ -17,9 +17,9 @@ call returns "squad guard: …" with what to do instead; never try to work aroun
 |---|---|---|
 | `Backlog` | Approved story, not yet split into tasks | PM (after GATE 2) |
 | `Todo` | Task ready to be picked up; a planned story waits here until its tasks are done | Team Lead (also a merge rejected for rework); QA (bugs); Reviewer (rework); Dev (needs-split, or blocked after claiming) |
-| `In Progress` | A developer is working on it | Dev |
+| `In Progress` | A developer (or DevOps, for an `infra` task) is working on it | Dev; DevOps |
 | `In Review` | PR open, awaiting review | Dev; Team Lead (merge rejected for a new review) |
-| `QA` | Merged, awaiting testing | Team Lead (after final check and merge) |
+| `QA` | Merged (or platform change applied), awaiting testing | Team Lead (after final check and merge); DevOps (`infra`) |
 | `Done` | QA passed, ready to deploy | QA |
 | `Released` | Live in production | DevOps |
 
@@ -45,7 +45,8 @@ Releases are grouped by repository **milestones**.
 
 `type:epic`, `type:story`, `type:task`, `type:bug`, `type:report`, `qa:failed`,
 `review:changes`, `review:passed`, `needs-split`, `needs-rebase`, `needs-human`, `blocked`,
-`quick` (quick-lane task from `/squad:fix`: no parent story, no wave; QA checks its DoD only)
+`quick` (quick-lane task from `/squad:fix`: no parent story, no wave; QA checks its DoD only),
+`infra` (platform change: DevOps does it with `scripts/railway.sh`, no PR; QA checks the effect)
 
 ## 4. Issue relationships
 
