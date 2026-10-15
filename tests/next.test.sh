@@ -105,4 +105,17 @@ eq "a stale claim does not block the review" "$(act review .issue)" '[54]'
 check "...and is reported as stale" 'jq -e ".notes | map(test(\"#54: claim by review@laptop-b is older\")) | any" <<<"$out" >/dev/null'
 out="$(SQUAD_HOST=laptop-b "$S/next.sh")"
 eq "on the machine that holds dev-1, the next task gets slot 2" "$(act dev '[.issue, .slot]')" '[[52,2]]'
+# GitHub's item listing left out the story (issue #3): its task stays in scope, with a note
+cat > "$T/items5.json" <<'JSON'
+[
+ {"number": 60, "type": "epic", "status": "Todo"},
+ {"number": 61, "type": "story", "status": "Todo", "parent": 60, "unlisted": true},
+ {"number": 62, "type": "task", "status": "Todo", "parent": 61, "size": "S", "wave": 1, "body": "- **Depends on:** none"}
+]
+JSON
+echo '[]' > "$T/prs.json"
+python3 "$FIX/board.py" "$T/items5.json" next > "$T/next.json"; python3 "$FIX/board.py" "$T/items5.json" board > "$T/board.json"
+out="$(SQUAD_HOST=laptop-a "$S/next.sh" --scope '#60')"
+eq "a task whose story is missing from the listing is still in scope" "$(act dev .issue)" '[62]'
+check "...and the missing story is reported" 'jq -e ".notes | map(test(\"#61 \\\\(parent of #62\\\\) is not in the board listing\")) | any" <<<"$out" >/dev/null'
 cd / && rm -rf "$(dirname "$R")" "$T"

@@ -130,6 +130,14 @@ if [[ -n "$PROJECT_ID" ]]; then
       add project_workflows warn "cannot list the project's built-in workflows" "board.sh workflows (check the project scope)"
     elif conf="$(jq -r '[.[] | select(.conflicts and .enabled) | .name] | join(", ")' <<<"$wfs")" && [[ -n "$conf" ]]; then add project_workflows fail "enabled workflows that set Status behind squad: $conf" "board.sh workflows --fix (deletes them), or disable them in the project settings"
     else add project_workflows ok "no conflicting built-in workflow"; fi
+    # GitHub's item listing sometimes leaves out items that are on the board; next.sh reads
+    # the listing, so it would not see them (or the tasks under them)
+    if ! listing="$("$SQUAD_SCRIPTS/board.sh" missing 2>/dev/null)"; then
+      add board_items warn "cannot compare the board with the repository's issues" "board.sh missing (check the project scope)"
+    elif m="$(jq -r '.missing | map(tostring) | join(" ")' <<<"$listing")" && [[ -n "$m" ]]; then
+      add board_items fail "on the board but left out of GitHub's item listing: #${m// / #} (squad cannot see them; added in the last minute? run doctor again)" \
+        "board.sh relink $m (deletes and re-adds the items, keeping their fields)"
+    else add board_items ok "every issue on the board is in the item listing"; fi
   fi
 fi
 

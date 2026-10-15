@@ -7,7 +7,8 @@
 #
 # Active only in repositories with .squad/config.yml (elsewhere it allows everything).
 # Rules:
-#   everyone           no `git push` to main/master (explicit, or a bare push from main);
+#   everyone           no `git push` to main/master (explicit, or a bare push from main,
+#                      after following `cd`; heredoc and quoted text are not commands);
 #                      no `gh pr merge --admin`; no `gh pr review --approve`
 #   squad:* agents     Railway only through scripts/railway.sh, never the railway CLI itself;
 #                      only squad:devops may run railway.sh changes (others: read commands)
@@ -32,17 +33,50 @@ root="$(dirname "$common")"
 
 block() { echo "squad guard: $*" >&2; exit 2; }
 
+# split_command <command> <cwd> : one "<dir>\t<simple command>" line per simple command.
+# Heredoc bodies and quoted text are data, not commands; `cd`/`pushd` change the directory
+# of the commands after them. Falls back to a plain split (every part in <cwd>) without python3.
+split_command() {
+  python3 - "$1" "$2" <<'PY' 2>/dev/null && return
+import os, re, shlex, sys
+cmd, d = sys.argv[1], sys.argv[2]
+# drop heredoc bodies: from the line after `<<X` / `<<'X'` / `<<-X` up to the line `X`
+lines, out, ends = cmd.split("\n"), [], []
+for line in lines:
+    if ends:
+        if line.strip() == ends[0]: ends.pop(0)
+        continue
+    out.append(line)
+    ends += [m.group(2) for m in re.finditer(r"(?<!<)<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1", line)]
+# a newline ends a command like ";" (inside quotes it only changes the data)
+lex = shlex.shlex(" ; ".join(out), posix=True, punctuation_chars=";&|")
+lex.commenters, lex.whitespace_split = "", True
+parts, cur = [], []
+for tok in lex:
+    if tok and set(tok) <= set(";&|"):
+        if cur: parts.append(cur); cur = []
+    else:
+        cur.append(tok)
+if cur: parts.append(cur)
+for words in parts:
+    print(d + "\t" + " ".join(re.sub(r"\s", " ", w) for w in words))
+    if words[0] in ("cd", "pushd"):
+        to = next((w for w in words[1:] if not w.startswith("-")), "~")
+        d = os.path.normpath(os.path.join(d, os.path.expanduser(to)))
+PY
+  sed -E 's/(&&|\|\||;|\|)/\n/g' <<<"$1" | while IFS= read -r p; do printf '%s\t%s\n' "$2" "$p"; done
+}
+
 if [[ "$tool" == Bash ]]; then
   cmd="$(field .tool_input.command)"
-  # one simple command per line of the compound command
-  while IFS= read -r part; do
+  while IFS=$'\t' read -r pdir part; do
     part="${part#"${part%%[![:space:]]*}"}"
     if [[ "$part" =~ ^git([[:space:]]+-C[[:space:]]+[^[:space:]]+)?[[:space:]]+push([[:space:]]|$) ]]; then
       if [[ "$part" =~ ([[:space:]:/+]|^)(main|master)([[:space:]]|$) ]]; then
         block "pushing to main is not allowed; push the task branch and open a PR"
       fi
-      dir="$cwd"; [[ "$part" =~ -C[[:space:]]+([^[:space:]]+) ]] && dir="${BASH_REMATCH[1]}"
-      [[ "$dir" = /* ]] || dir="$cwd/$dir"
+      dir="$pdir"; [[ "$part" =~ -C[[:space:]]+([^[:space:]]+) ]] && dir="${BASH_REMATCH[1]}"
+      [[ "$dir" = /* ]] || dir="$pdir/$dir"
       branch="$(git -C "$dir" branch --show-current 2>/dev/null)"
       if [[ "$branch" == main || "$branch" == master ]]; then
         # arguments after "push" without options: <remote> [<refspec>...]
@@ -69,7 +103,7 @@ if [[ "$tool" == Bash ]]; then
     if [[ "$part" =~ ^gh[[:space:]]+pr[[:space:]]+review([[:space:]]|$) && "$part" =~ [[:space:]](--approve|-a)([[:space:]]|$) ]]; then
       block "squad never approves PRs (one shared account); post the verdict with gh pr review --comment"
     fi
-  done < <(sed -E 's/(&&|\|\||;|\|)/\n/g' <<<"$cmd")
+  done < <(split_command "$cmd" "$cwd")
   exit 0
 fi
 

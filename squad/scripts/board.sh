@@ -18,6 +18,11 @@
 #                                                  this machine; safe across machines (claim
 #                                                  comment, earliest wins). Exit 3 = taken
 #   board.sh release <issue> [--force]             Clear this machine's claim (Agent field)
+#   board.sh missing                               Issues that have an item on the board but are
+#                                                  left out of GitHub's item listing (next.sh
+#                                                  cannot see them): {missing: [numbers]}
+#   board.sh relink <issue>...                     Delete and re-add those items, keeping Status,
+#                                                  Priority, Size, Wave, Agent and Attempts
 #   board.sh workflows [--fix]                     List built-in project workflows that fight squad
 #                                                  status ownership; --fix deletes them (permanent;
 #                                                  GitHub's API has no "disable")
@@ -264,6 +269,53 @@ cmd_release() {
   jq -nc --argjson n "$n" --argjson c "$k" '{issue:$n, released:true, claim_comments:$c}'
 }
 
+# missing: issues with a live item on this board (seen from the issue side) that the project's
+# item listing leaves out. GitHub sometimes does this for good; deleting and re-adding the
+# item (relink) brings it back.
+MISSING_QUERY='query($o:String!,$r:String!,$endCursor:String){repository(owner:$o,name:$r){
+  issues(first:100,after:$endCursor){pageInfo{hasNextPage endCursor}
+  nodes{number projectItems(first:20){nodes{isArchived project{id}}}}}}}'
+cmd_missing() {
+  local on listed
+  on="$(gh api graphql --paginate -f query="$MISSING_QUERY" -F o="$OWNER" -F r="$REPO" \
+        | jq -s --arg p "$PROJECT_ID" '[.[].data.repository.issues.nodes[]
+            | select(any(.projectItems.nodes[]; .project.id == $p and (.isArchived | not))) | .number]')" \
+    || die "cannot list the repository's issues"
+  listed="$(all_items | jq -c '[.[].number]')"
+  jq -c --argjson l "$listed" '{missing: (. - $l | sort)}' <<<"$on"
+}
+
+# relink <issue>...: delete the item and add the issue again, then restore its fields
+cmd_relink() {
+  (($#)) || die "usage: board.sh relink <issue>..."
+  local n it cur round try listed f v
+  for n in "$@"; do
+    n="${n#\#}"
+    it="$(one_item "$n")"; [[ -n "$it" ]] || die "#$n is not on the board"
+    cur="$it"
+    for round in 1 2; do   # some items need a second round
+      gql 'mutation($p:ID!,$i:ID!){deleteProjectV2Item(input:{projectId:$p,itemId:$i}){deletedItemId}}' \
+        -F p="$PROJECT_ID" -F i="$(jq -r .item_id <<<"$cur")" >/dev/null
+      item_id "$n" >/dev/null
+      [[ -z "$(jq -r '.status // empty' <<<"$it")" ]] || cmd_move "$n" "$(jq -r .status <<<"$it")" >/dev/null
+      for f in priority size wave agent; do
+        v="$(jq -r --arg f "$f" '.[$f] // empty' <<<"$it")"
+        [[ -z "$v" ]] || cmd_set_field "$n" "$f" "$v" >/dev/null
+      done
+      v="$(jq -r '.attempts // 0' <<<"$it")"; [[ "$v" == 0 ]] || cmd_set_field "$n" attempts "$v" >/dev/null
+      listed=false
+      for try in 1 2 3; do   # the listing is eventually consistent
+        ITEMS_JSON=""
+        if all_items | jq -e --argjson n "$n" 'any(.[]; .number == $n)' >/dev/null; then listed=true; break; fi
+        sleep "${RELINK_WAIT:-5}"
+      done
+      [[ "$listed" == true || "$round" == 2 ]] && break
+      cur="$(one_item "$n")"; [[ -n "$cur" ]] || die "#$n vanished from the board during relink"
+    done
+    jq -nc --argjson n "$n" --argjson l "$listed" '{issue:$n, relinked:true, listed:$l}'
+  done
+}
+
 cmd_bump_attempts() {
   local n="${1:?usage: board.sh bump-attempts <issue>}" cur
   cur="$(cmd_get "$n" | jq -r '.attempts // 0')"
@@ -461,12 +513,13 @@ cmd="${1:-}"; [[ $# -gt 0 ]] && shift
 case "$cmd" in
   -h|--help|help|"") usage_from "$0"; [[ -n "$cmd" ]] ;;
   bootstrap) cmd_bootstrap "$@" ;;
-  list|get|move|set-field|ready-tasks|bump-attempts|workflows|claim|release)
+  list|get|move|set-field|ready-tasks|bump-attempts|workflows|claim|release|missing|relink)
     load_project
     case "$cmd" in
       list) cmd_list "$@" ;; get) cmd_get "$@" ;; move) cmd_move "$@" ;;
       set-field) cmd_set_field "$@" ;; ready-tasks) cmd_ready_tasks ;; bump-attempts) cmd_bump_attempts "$@" ;;
       workflows) cmd_workflows "$@" ;; claim) cmd_claim "$@" ;; release) cmd_release "$@" ;;
+      missing) cmd_missing ;; relink) cmd_relink "$@" ;;
     esac ;;
   *) die "unknown command '$cmd' (see --help)" ;;
 esac

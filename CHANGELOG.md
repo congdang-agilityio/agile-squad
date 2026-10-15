@@ -3,6 +3,26 @@
 All notable changes to agile-squad. Versions follow [Semantic Versioning](https://semver.org);
 the plugin version lives in `squad/.claude-plugin/plugin.json` and the marketplace entry.
 
+## [0.6.2] - 2026-10-16
+
+### Fixed
+- **Guard: false positives on `git push`** (#2). A push from a task worktree reached with
+  `cd <worktree> && … && git push -u origin HEAD` was blocked as a push from `main`, because
+  the guard checked the session's directory and ignored the `cd`. It now follows `cd` and
+  `pushd` through the command. Text in heredocs and quoted arguments (an issue body that
+  mentions `git push`) is no longer treated as a command. Pushes to `main` stay blocked.
+- **Items left out of GitHub's project listing** (#3). GitHub's item listing sometimes omits
+  items that are on the board, so `next.sh` treated the tasks under them as out of scope
+  without a word. `next.sh` now reads each item's ancestors from the issue itself (a task
+  stays in scope even when its story is missing from the listing) and notes the missing item.
+
+### Added
+- `board.sh missing`: issues with an item on the board that the listing leaves out.
+  Doctor check `board_items` reports them.
+- `board.sh relink <issue>...`: deletes and re-adds those items, restoring Status, Priority,
+  Size, Wave, Agent and Attempts, and checks that they are listed again (a second round when
+  needed). Doctor asks for an explicit yes before running it.
+
 ## [0.6.1] - 2026-10-16
 
 ### Fixed

@@ -273,7 +273,7 @@ repositories that have `.squad/config.yml` (elsewhere it does nothing):
 
 | Who | Blocked |
 |---|---|
-| everyone | `git push` to `main`/`master` (also a bare push from `main`), `gh pr merge --admin`, `gh pr review --approve` |
+| everyone | `git push` to `main`/`master` (also a bare push from `main`, following any `cd` before it), `gh pr merge --admin`, `gh pr review --approve` |
 | Developers | writing files outside `.worktrees/<issue>/` |
 | BA | writing outside `docs/requirements/` |
 | Reporter | writing outside `.squad/reports/` |
@@ -281,6 +281,7 @@ repositories that have `.squad/config.yml` (elsewhere it does nothing):
 | Reviewer, QA, Team Lead, DevOps | writing or editing any file |
 
 The main session is not restricted beyond the first row, so you can still work in it yourself.
+Text in a heredoc or in quotes (an issue body that mentions `git push`) is data, not a command.
 
 ## Troubleshooting
 
@@ -295,6 +296,7 @@ Start with `/squad:doctor`: it detects most of these and prints the fix.
 | `not logged in to Railway` | Run `! railway login` once on this machine |
 | DevOps asks you to set a variable yourself | It is a secret (password, API key): run the `railway variable set … --stdin` command it gives you |
 | `squad guard: …` | The guard hook blocked a rule-breaking call; the message says what to do instead |
+| A ready task is never picked up; `next.sh` notes an item "is not in the board listing" | GitHub's item listing left the item (or its story) out. `/squad:doctor` finds them (`board_items`); `board.sh relink <issues>` deletes and re-adds them, keeping their fields |
 | A PR is labeled `needs-split` | It is bigger than its task size. The Team Lead re-sizes or splits it. Add generated files (lock files, migration locks) to `limits.pr_size_exclude` |
 | An item is labeled `needs-human` | It failed `limits.max_attempts` times. Read its last comment, decide, then remove the label |
 | An item is labeled `blocked` | It waits for your answer. The PM removes the label after recording your answer |

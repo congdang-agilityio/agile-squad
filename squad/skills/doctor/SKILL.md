@@ -1,6 +1,6 @@
 ---
 name: doctor
-description: "Diagnose why squad cannot run in this repository: tools, gh login and token scopes, .squad/config.yml and its board ids, board fields and Status columns, labels, conflicting project workflows, merge settings, branch protection, release-gate workflow, the production GitHub Environment, the Railway CLI login and project, the gh pr merge permission rule and leftover worktrees. Read-only; proposes each fix and applies it only after the stakeholder agrees. Use when a squad script fails, after a machine restart or a fresh clone, before the first run, or when the stakeholder asks whether squad is set up correctly."
+description: "Diagnose why squad cannot run in this repository: tools, gh login and token scopes, .squad/config.yml and its board ids, board fields and Status columns, items missing from GitHub's item listing, labels, conflicting project workflows, merge settings, branch protection, release-gate workflow, the production GitHub Environment, the Railway CLI login and project, the gh pr merge permission rule and leftover worktrees. Read-only; proposes each fix and applies it only after the stakeholder agrees. Use when a squad script fails, after a machine restart or a fresh clone, before the first run, or when the stakeholder asks whether squad is set up correctly."
 ---
 
 # squad: doctor
@@ -25,6 +25,7 @@ Runs in the **main session** (PM). No subagent: it only reads, then asks.
    | `ids`, `board` | `board.sh bootstrap --project <n>` (reuses the board, rewrites ids) | PM |
    | `labels` | `issue.sh labels` | PM |
    | `project_workflows` | `board.sh workflows --fix` **deletes** them: explicit yes for this one | PM |
+   | `board_items` | `board.sh relink <issues>` deletes and re-adds those items (fields kept, item history lost): explicit yes for this one | PM |
    | `gh_auth` | `! gh auth refresh -h github.com -s project,workflow` | stakeholder |
    | `merge_permission` | add `"Bash(gh pr merge:*)"` to `.claude/settings.json` | PM, after yes |
    | `gitignore` | append the missing lines | PM |
@@ -38,7 +39,7 @@ Runs in the **main session** (PM). No subagent: it only reads, then asks.
 4. Run `doctor.sh` again and report the result.
 
 ## Never
-- Fix anything without the stakeholder's yes, or delete project workflows without an
-  explicit yes for that item.
+- Fix anything without the stakeholder's yes, or delete project workflows or relink board
+  items without an explicit yes for that item.
 - Read, print or set secrets or tokens.
 - Edit `ids:` in the config by hand.

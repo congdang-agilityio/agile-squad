@@ -32,7 +32,9 @@ use the agent's default.
    wave. If `rewave` is not empty, add `squad:team-lead` with `mode=rewave tasks=<rewave>` to
    the batch (it recomputes waves for unstarted tasks so idle slots get work); at most once
    per run, since file overlaps can keep tasks in later waves.
-   If `next.sh` fails, run the `doctor` skill instead and stop.
+   If `next.sh` fails, run the `doctor` skill instead and stop. A note that an item "is not
+   in the board listing" means GitHub's listing hides it: tell the stakeholder once and offer
+   the `doctor` skill (its `board_items` fix); keep running the rest.
 2. Act on each action:
    | Action | What the PM does |
    |---|---|

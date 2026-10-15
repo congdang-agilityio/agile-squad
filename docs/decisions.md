@@ -163,3 +163,14 @@ next role's claim within 10 minutes loses to it. Release appends `· released <t
 comment instead of deleting it: the regex no longer matches, while the "Started by" prefix
 and `created_at` that metrics read stay. Without `--force` it only marks this machine's
 comments, so it can never cancel a live claim of another machine.
+
+## D-19 (2026-10-16): Read the shell command, not its text; do not trust the project listing alone
+The guard matched `git push` in any line of a command and judged the branch from the session's
+directory, so a developer's `cd <worktree> && git push` was blocked and an issue body that
+mentioned `git push` too (#2). It now splits the command like a shell (quotes, heredocs) and
+follows `cd`/`pushd`; without python3 it falls back to the old split, which errs on blocking.
+GitHub's project item listing can leave out items that are on the board, for good, not just
+for the first seconds (#3); the cause is on GitHub's side and only deleting and re-adding the
+item helped. `next.sh` therefore takes each item's ancestors from the issue (parent chain), so
+scope does not depend on the listing, and says when an ancestor is missing; doctor compares the
+listing with the issues' own project items, and `board.sh relink` repairs them after a yes.

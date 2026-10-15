@@ -275,7 +275,7 @@ repository có `.squad/config.yml` (ở nơi khác hook không làm gì):
 
 | Ai | Bị chặn |
 |---|---|
-| mọi người | `git push` lên `main`/`master` (kể cả push trống khi đang ở `main`), `gh pr merge --admin`, `gh pr review --approve` |
+| mọi người | `git push` lên `main`/`master` (kể cả push trống khi đang ở `main`, có tính các lệnh `cd` phía trước), `gh pr merge --admin`, `gh pr review --approve` |
 | Developer | ghi file ngoài `.worktrees/<issue>/` |
 | BA | ghi file ngoài `docs/requirements/` |
 | Reporter | ghi file ngoài `.squad/reports/` |
@@ -283,6 +283,7 @@ repository có `.squad/config.yml` (ở nơi khác hook không làm gì):
 | Reviewer, QA, Team Lead, DevOps | ghi hoặc sửa bất kỳ file nào |
 
 Phiên chính chỉ chịu các giới hạn ở dòng đầu, nên bạn vẫn có thể tự làm việc trong đó.
+Chữ nằm trong heredoc hay trong dấu nháy (ví dụ nội dung issue có nhắc `git push`) là dữ liệu, không bị coi là lệnh.
 
 ## Xử lý sự cố
 
@@ -298,6 +299,7 @@ sửa.
 | `not logged in to Railway` | Chạy `! railway login` một lần trên máy này |
 | DevOps nhờ bạn tự đặt một biến | Đó là secret (mật khẩu, API key): chạy lệnh `railway variable set … --stdin` mà DevOps đưa |
 | `squad guard: …` | Hook bảo vệ đã chặn một lệnh vi phạm quy tắc; thông báo cho biết nên làm gì thay thế |
+| Task sẵn sàng nhưng không bao giờ được nhận; `next.sh` ghi chú một mục "is not in the board listing" | Danh sách item của GitHub bỏ sót mục đó (hoặc story cha của nó). `/squad:doctor` tìm ra chúng (`board_items`); `board.sh relink <issues>` xoá rồi thêm lại item, giữ nguyên các field |
 | PR bị gắn `needs-split` | PR lớn hơn cỡ của task. Team Lead đổi cỡ hoặc chia nhỏ. Thêm các file sinh tự động (lock file, migration lock) vào `limits.pr_size_exclude` |
 | Một mục bị gắn `needs-human` | Đã thất bại `limits.max_attempts` lần. Đọc comment cuối, quyết định, rồi gỡ label |
 | Một mục bị gắn `blocked` | Đang chờ câu trả lời của bạn. PM gỡ label sau khi ghi lại câu trả lời |

@@ -56,7 +56,7 @@ T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 Q='query($id:ID!,$endCursor:String){node(id:$id){... on ProjectV2{items(first:100,after:$endCursor){
   pageInfo{hasNextPage endCursor}
   nodes{isArchived content{... on Issue{number title state body repository{nameWithOwner}
-    labels(first:30){nodes{name}} milestone{title} parent{number}}}
+    labels(first:30){nodes{name}} milestone{title} parent{number parent{number parent{number parent{number}}}}}}
     status: fieldValueByName(name:"Status"){... on ProjectV2ItemFieldSingleSelectValue{name}}
     priority: fieldValueByName(name:"Priority"){... on ProjectV2ItemFieldSingleSelectValue{name}}
     size: fieldValueByName(name:"Size"){... on ProjectV2ItemFieldSingleSelectValue{name}}
@@ -68,7 +68,8 @@ gh api graphql --paginate -f query="$Q" -F id="$PROJECT_ID" \
       | select((.isArchived | not) and .content.repository.nameWithOwner == $repo)
       | .content + {status: .status.name, priority: .priority.name, size: .size.name, attempts: (.attempts.number // 0 | floor), wave: (.wave.number | if . == null then null else floor end),
                     agent: .agent.text, labels: [.content.labels.nodes[].name],
-                    milestone: .content.milestone.title, parent: .content.parent.number}
+                    milestone: .content.milestone.title, parent: .content.parent.number,
+                    ancestors: [.content.parent // empty | recurse(.parent // empty) | .number]}
       | del(.repository)]' > "$T/items.json"
 gh pr list --repo "$OWNER/$REPO" --state open --limit 200 \
   --json number,title,body,labels,headRefName,isDraft,closingIssuesReferences > "$T/prs.json"
@@ -132,8 +133,16 @@ def in_scope(n, depth=0):
     if n in roots: return True
     i = by.get(n, {})   # urgent bugs (e.g. a failed smoke test) are always in scope
     if depth == 0 and typ(i) == "bug" and i.get("priority") in ("P0", "P1") and i.get("state") == "OPEN": return True
-    p = by.get(n, {}).get("parent")
+    if i.get("ancestors"): return bool(roots & set(i["ancestors"]))   # from GitHub, listed or not
+    p = i.get("parent")
     return p is not None and depth < 5 and in_scope(p, depth + 1)
+
+# GitHub's project item listing sometimes leaves out items that are on the board: say so
+# instead of silently treating their children as orphans
+unlisted = {}
+for i in items:
+    for a in i.get("ancestors") or [i.get("parent")]:
+        if a is not None and a not in by and i["state"] == "OPEN": unlisted.setdefault(a, []).append(i["number"])
 
 def children_bugs_open(n):
     # a merged fix closes the bug issue before QA has verified it: status decides, not state
@@ -151,6 +160,9 @@ def pr_task(p):
     return int(m.group(1)) if m else None
 
 actions, notes = [], []
+for a, kids in sorted(unlisted.items()):
+    notes.append(f"#{a} (parent of {', '.join(f'#{k}' for k in sorted(set(kids))[:5])}) is not in the board listing "
+                 f"(archived, or left out by GitHub): run /squad:doctor")
 labels = lambda p: {l["name"] for l in p["labels"]}
 
 human = sorted(i["number"] for i in items if "needs-human" in i["labels"] and i["state"] == "OPEN" and in_scope(i["number"]))

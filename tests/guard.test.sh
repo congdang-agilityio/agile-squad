@@ -40,6 +40,17 @@ eq "QA may not change Railway" "$(hook squad:qa-tester Bash "$(bash_in '"/p/scri
 eq "DevOps may change Railway through railway.sh" "$(hook squad:devops Bash "$(bash_in '/p/scripts/railway.sh add-db staging postgres')")" 0
 eq "DevOps may not use the railway CLI directly either" "$(hook squad:devops Bash "$(bash_in 'npx @railway/cli@5 up')")" 2
 eq "the main session may use the railway CLI" "$(hook "" Bash "$(bash_in 'railway login')")" 0
+# cd changes the directory of the commands after it (issue #2)
+eq "cd into a task worktree, then push HEAD, is allowed" "$(hook squad:developer Bash "$(bash_in "cd $R/.worktrees/12 && git commit -m 'x' && git push -u origin HEAD")")" 0
+eq "a relative cd into the worktree counts too" "$(hook squad:developer Bash "$(bash_in 'cd .worktrees/12; git push -u origin HEAD')")" 0
+eq "cd back to the main checkout, then push HEAD, is blocked" "$(hook squad:developer Bash "$(bash_in "cd $R/.worktrees/12 && cd ../.. && git push -u origin HEAD")" "$R")" 2
+eq "cd into the main checkout from a worktree, then push, is blocked" "$(hook squad:developer Bash "$(bash_in "cd $R && git push")" "$R/.worktrees/12")" 2
+eq "an explicit push to main after cd is still blocked" "$(hook squad:developer Bash "$(bash_in "cd $R/.worktrees/12 && git push origin main")")" 2
+# heredoc bodies and quoted text are data, not commands
+eq "git push inside a heredoc is not a command" "$(hook "" Bash "$(bash_in $'cat > notes.md <<\'EOF\'\ngit push -u origin HEAD\nEOF\ngh issue create --body-file notes.md')")" 0
+eq "git push inside a quoted argument is not a command" "$(hook "" Bash "$(bash_in 'gh issue create --title t --body "steps: commit; git push -u origin HEAD"')")" 0
+eq "a real push after a heredoc is still checked" "$(hook "" Bash "$(bash_in $'cat > a <<EOF\nx\nEOF\ngit push')")" 2
+eq "an unclosed quote falls back to the plain split (blocked)" "$(hook "" Bash "$(bash_in 'echo "x; git push')")" 2
 O="$(new_repo)"
 eq "outside a squad repo nothing is blocked" "$(hook "" Bash "$(bash_in 'git push origin main')" "$O")" 0
 eq "other tools pass" "$(hook squad:reviewer Read '{"file_path":"/etc/hosts"}')" 0
