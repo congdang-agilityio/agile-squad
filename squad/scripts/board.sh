@@ -212,10 +212,9 @@ cmd_claim() {
     EXIT_CODE=3 die "#$n is claimed by ${agent%% *} (since ${agent#* })"
   fi
   nonce="$(od -An -N4 -tx1 /dev/urandom | tr -d ' \n')"
-  since="$(python3 -c 'import datetime as d; print((d.datetime.now(d.timezone.utc) - d.timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ"))')"
+  since="$(claim_since)"
   gh issue comment "$n" --repo "$OWNER/$REPO" --body "Started by $me · claim $nonce" >/dev/null || die "cannot comment on #$n"
-  comments="$(gh api "repos/$OWNER/$REPO/issues/$n/comments?since=$since&per_page=100" \
-              --jq '[.[] | select(.body | test("· claim [0-9a-f]{8}$")) | {id, created_at, body}]')"
+  comments="$(claim_comments "$n" "$since")"
   win="$(jq -r 'sort_by(.created_at, .id) | first | .body // empty' <<<"$comments")"
   if [[ "$win" == *"claim $nonce" ]]; then
     edit_item "$n" "$(cfg_req .ids.agent_field_id)" --text "$me $(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -227,16 +226,42 @@ cmd_claim() {
   fi
 }
 
-# release <issue> [--force]: clear the Agent claim; only this machine's own claim unless --force
+# claim_since: the start of the claim race window (10 minutes ago, UTC)
+claim_since() {
+  python3 -c 'import datetime as d; print((d.datetime.now(d.timezone.utc) - d.timedelta(minutes=10)).strftime("%Y-%m-%dT%H:%M:%SZ"))'
+}
+
+# claim_comments <issue> <since> : live claim comments created since <since>. GitHub's `since`
+# filters by updated_at, so created_at is checked again here.
+claim_comments() {
+  gh api "repos/$OWNER/$REPO/issues/$1/comments?since=$2&per_page=100" \
+    --jq "[.[] | select(.created_at >= \"$2\" and (.body | test(\"· claim [0-9a-f]{8}\$\"))) | {id, created_at, body}]"
+}
+
+# release <issue> [--force]: clear the Agent claim; only this machine's own claim unless --force.
+# Its claim comments are marked "· released <time>" so they stop winning the claim race; the
+# comment and its "Started by" prefix stay for metrics.
 cmd_release() {
-  local n="${1:?usage: board.sh release <issue> [--force]}" it agent
+  local n="${1:?usage: board.sh release <issue> [--force]}" it agent force=0 rows id body ts k=0
+  [[ "${2:-}" == --force ]] && force=1
   it="$(one_item "$n")"; [[ -n "$it" ]] || die "#$n is not on the board"
   agent="$(jq -r '.agent // empty' <<<"$it")"
-  if [[ -n "$agent" && "${2:-}" != --force && "$agent" == *@* && "${agent%% *}" != *"@$(machine_id)" ]]; then
+  if [[ -n "$agent" && "$force" == 0 && "$agent" == *@* && "${agent%% *}" != *"@$(machine_id)" ]]; then
     EXIT_CODE=3 die "#$n is claimed by ${agent%% *}, not by this machine (use --force to clear it)"
   fi
   [[ -z "$agent" ]] || edit_item "$n" "$(cfg_req .ids.agent_field_id)" --clear
-  jq -nc --argjson n "$n" '{issue:$n, released:true}'
+  ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  rows="$(claim_comments "$n" "$(claim_since)" | jq -r --arg m "@$(machine_id)" --argjson f "$force" \
+          '.[] | select($f == 1 or (.body | split(" · claim ")[0] | endswith($m))) | "\(.id)\t\(.body)"')"
+  while IFS=$'\t' read -r id body; do
+    [[ -n "$id" ]] || continue
+    if gh api -X PATCH "repos/$OWNER/$REPO/issues/comments/$id" -f body="$body · released $ts" >/dev/null; then
+      k=$((k + 1))
+    else
+      warn "could not mark claim comment $id on #$n as released"
+    fi
+  done <<<"$rows"
+  jq -nc --argjson n "$n" --argjson c "$k" '{issue:$n, released:true, claim_comments:$c}'
 }
 
 cmd_bump_attempts() {

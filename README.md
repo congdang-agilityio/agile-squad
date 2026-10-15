@@ -198,7 +198,8 @@ GATE 3 workflow are committed, and all work state is on the board.
 - Before a developer, QA or reviewer starts on an item it **claims** it: a "Started by … ·
   claim" comment on the issue, and the earliest claim wins. If two machines reach for the
   same item at the same moment, the second one backs off (`claimed_elsewhere`), and
-  `next.sh` does not offer an item another machine is working on.
+  `next.sh` does not offer an item another machine is working on. When a worker finishes it
+  releases the item (the comment is marked "released"), so the next role can claim it at once.
 - A claim older than `parallel.claim_ttl_minutes` (default 120: a machine that crashed) is
   reported as stale; clear it with `board.sh release <issue> --force`.
 - Agree on one stakeholder for the gates, and one person (with the Railway login) for

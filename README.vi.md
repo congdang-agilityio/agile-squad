@@ -200,7 +200,8 @@ commit, và toàn bộ trạng thái công việc nằm trên board.
 - Trước khi developer, QA hay reviewer bắt đầu một mục, nó **claim** mục đó: một comment
   "Started by … · claim" trên issue, và claim sớm nhất thắng. Nếu hai máy cùng nhận một mục
   trong cùng một lúc, máy đến sau tự lùi (`claimed_elsewhere`), và `next.sh` không đề xuất
-  mục mà máy khác đang làm.
+  mục mà máy khác đang làm. Khi làm xong, worker nhả mục đó ra (comment được đánh dấu
+  "released"), nên vai tiếp theo claim được ngay.
 - Claim cũ hơn `parallel.claim_ttl_minutes` (mặc định 120 phút: máy bị sập) được báo là quá
   hạn; xoá bằng `board.sh release <issue> --force`.
 - Thống nhất một stakeholder duyệt các gate, và một người (có Railway login) lo phát hành và

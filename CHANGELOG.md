@@ -3,6 +3,18 @@
 All notable changes to agile-squad. Versions follow [Semantic Versioning](https://semver.org);
 the plugin version lives in `squad/.claude-plugin/plugin.json` and the marketplace entry.
 
+## [0.6.1] - 2026-10-16
+
+### Fixed
+- **A released claim kept winning for 10 minutes.** `board.sh release` cleared only the Agent
+  field and left the claim comment, so the next claim on the item (the reviewer after the
+  developer, QA after the merge, the developer back for rework) lost the race to it and
+  returned `claimed_elsewhere` until the comment was 10 minutes old. Release now marks this
+  machine's claim comments `· released <time>` (all of them with `--force`), so they no
+  longer count; the "Started by" prefix and creation time stay, so metrics are unchanged.
+- Claim comments are filtered by `created_at` as well: GitHub's `since` filters by
+  `updated_at`, so an old claim comment edited later came back into the race window.
+
 ## [0.6.0] - 2026-10-15
 
 ### Added

@@ -157,3 +157,9 @@ Agent field then records `who@machine time`, which `next.sh` reads to keep slots
 and to skip items another machine is working on. Claims expire (`claim_ttl_minutes`) so a
 crashed machine never blocks an item for good; stale claims are reported, not silently taken.
 The "Started by" prefix is kept so cycle-time metrics still work.
+
+Amended 2026-10-16 (0.6.1): a release must also take its comment out of the race, or the
+next role's claim within 10 minutes loses to it. Release appends `· released <time>` to the
+comment instead of deleting it: the regex no longer matches, while the "Started by" prefix
+and `created_at` that metrics read stay. Without `--force` it only marks this machine's
+comments, so it can never cancel a live claim of another machine.
